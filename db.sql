@@ -1,0 +1,67 @@
+CREATE DATABASE IF NOT EXISTS omnifit;
+USE omnifit;
+
+CREATE TABLE Users (
+	id INT AUTO_INCREMENT PRIMARY KEY, 
+	username VARCHAR(50) UNIQUE NOT NULL,
+	email VARCHAR(100) UNIQUE NOT NULL,
+	password VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE Workouts(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	user_id INT NOT NULL,
+	date_created DATETIME DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE Sets (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	workoutID INT NOT NULL, 
+	exerciseName VARCHAR(50) NOT NULL, 
+	setOrder INT NOT NULL, 
+	reps INT NOT NULL,
+	weight FLOAT DEFAULT 0, 
+	recoveryBetweenSets INT, 
+	recoveryExercise INT, 
+	FOREIGN KEY (workoutID) REFERENCES Workouts(id) ON DELETE CASCADE
+);
+
+CREATE TABLE Goals(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	user_id INT NOT NULL,
+	muscle_group VARCHAR(50),
+	target_sets INT,
+	FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE RPE_Log(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	workout_id INT NOT NULL,
+	rpe_value INT CHECK(rpe_value BETWEEN 1 AND 10),
+	FOREIGN KEY (workout_id) REFERENCES Workouts(id) ON DELETE CASCADE
+);
+
+CREATE TABLE NutritionLog(
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	user_id INT NOT NULL,
+	calories INT, 
+	date_log DATE,
+	FOREIGN KEY (user_id) REFERENCES Users(id)
+);
+
+CREATE TABLE HydrationLog(
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    ml INT NOT NULL,           
+    date_logged DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE MeditationLog(
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    duration_minutes INT NOT NULL, 
+    date_logged DATE DEFAULT (CURRENT_DATE),
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);

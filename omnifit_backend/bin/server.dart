@@ -8,7 +8,8 @@ import 'package:shelf_router/shelf_router.dart';
 final router = Router()
   ..get('/', _rootHandler)
   ..post('/api/auth/login', _loginHandler)
-  ..post('/api/workouts', _createWorkoutHandler); // <-- RUTA NOUĂ ADAUGATĂ AICI
+  ..post('/api/workouts', _createWorkoutHandler)
+  ..post('/api/rpe', _logRpeHandler); // <-- RUTA PENTRU RPE ESTE ACUM AICI
 
 // Răspuns de test
 Response _rootHandler(Request req) {
@@ -76,7 +77,7 @@ Future<Response> _createWorkoutHandler(Request req) async {
     }
 
     // --- PUNCT DE INTEGRARE ---
-    // Când Persoana 4 finalizează Stratul de Acces la Date (DAO)[cite: 84], aici vei conecta codul tău cu al ei:
+    // Când Persoana 4 finalizează Stratul de Acces la Date (DAO), aici vei conecta codul tău cu al ei:
     // int newWorkoutId = await DatabaseDAO.createWorkout(userId);
     // await DatabaseDAO.insertSets(newWorkoutId, sets);
     // --------------------------
@@ -87,6 +88,44 @@ Future<Response> _createWorkoutHandler(Request req) async {
         'message': 'Antrenamentul si seturile sunt pregatite pentru baza de date!',
         'setsProcessed': sets.length
       }),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare de procesare: $e'}));
+  }
+}
+
+// 3. Logica pentru Evaluarea Efortului (F3 - RPE)
+Future<Response> _logRpeHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final workoutId = data['workout_id']; 
+    final rpeValue = data['rpe_value'];   
+
+    if (workoutId == null || rpeValue == null) {
+       return Response.badRequest(
+        body: json.encode({'status': 'error', 'message': 'Date incomplete (lipseste workout_id sau rpe_value).'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+
+    // Validăm ca valoarea RPE să fie exact cum cere baza de date (între 1 și 10)
+    if (rpeValue < 1 || rpeValue > 10) {
+       return Response.badRequest(
+        body: json.encode({'status': 'error', 'message': 'RPE trebuie sa fie o nota de la 1 la 10.'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+
+    // --- PUNCT DE INTEGRARE ---
+    // Când Persoana 4 e gata, aici vei scrie: await DatabaseDAO.insertRpe(workoutId, rpeValue);
+    // --------------------------
+
+    return Response.ok(
+      json.encode({'status': 'success', 'message': 'RPE-ul a fost pregatit pentru salvare!'}),
       headers: {'Content-Type': 'application/json'},
     );
 

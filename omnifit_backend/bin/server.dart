@@ -4,16 +4,22 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+// Importăm fișierul care comunică direct cu baza de date MySQL
+import 'database_dao.dart'; 
+
 // 1. Configurăm rutele (Endpoint-urile)
 final router = Router()
   ..get('/', _rootHandler)
   ..post('/api/auth/login', _loginHandler)
   ..post('/api/workouts', _createWorkoutHandler)
-  ..post('/api/rpe', _logRpeHandler); // <-- RUTA PENTRU RPE ESTE ACUM AICI
+  ..post('/api/rpe', _logRpeHandler)
+  ..post('/api/hydration', _logHydrationHandler) 
+  ..post('/api/nutrition', _logNutritionHandler) 
+  ..post('/api/goals', _setGoalHandler);         
 
 // Răspuns de test
 Response _rootHandler(Request req) {
-  return Response.ok('Serverul OmniFit este UP! Poti continua cu hackathon-ul.\n');
+  return Response.ok('Serverul OmniFit este UP și CONECTAT LA DB!\n');
 }
 
 // Logica de Login (Mock-up)
@@ -27,11 +33,7 @@ Future<Response> _loginHandler(Request req) async {
 
     if (email != null && password != null) {
       return Response.ok(
-        json.encode({
-          'status': 'success', 
-          'message': 'Te-ai logat cu succes!', 
-          'token': 'mock_token_hackathon_123'
-        }),
+        json.encode({'status': 'success', 'message': 'Te-ai logat cu succes!', 'token': 'mock_token_hackathon_123'}),
         headers: {'Content-Type': 'application/json'},
       );
     } else {
@@ -45,16 +47,13 @@ Future<Response> _loginHandler(Request req) async {
   }
 }
 
-// 2. Logica ACTUALIZATĂ pentru Salvarea Antrenamentelor (F1)
+// 2. Logica pentru Salvarea Antrenamentelor (F1)
 Future<Response> _createWorkoutHandler(Request req) async {
   try {
     final payload = await req.readAsString();
     final data = json.decode(payload);
 
-    // 1. Extragem datele pentru tabela `Workouts`
-    final userId = data['user_id']; // Fix cum e în SQL
-
-    // 2. Extragem lista de seturi pentru tabela `Sets`
+    final userId = data['user_id'];
     final List<dynamic>? sets = data['sets']; 
 
     if (userId == null || sets == null || sets.isEmpty) {
@@ -64,11 +63,8 @@ Future<Response> _createWorkoutHandler(Request req) async {
       );
     }
 
-    // 3. Validăm că Frontend-ul trimite exact structura cerută de Persoana 4 pentru tabela `Sets`
     for (var setRecord in sets) {
-      if (setRecord['exerciseName'] == null || 
-          setRecord['setOrder'] == null || 
-          setRecord['reps'] == null) {
+      if (setRecord['exerciseName'] == null || setRecord['setOrder'] == null || setRecord['reps'] == null) {
         return Response.badRequest(
           body: json.encode({'status': 'error', 'message': 'Set invalid. Verifica exerciseName, setOrder si reps.'}),
           headers: {'Content-Type': 'application/json'},
@@ -76,18 +72,12 @@ Future<Response> _createWorkoutHandler(Request req) async {
       }
     }
 
-    // --- PUNCT DE INTEGRARE ---
-    // Când Persoana 4 finalizează Stratul de Acces la Date (DAO), aici vei conecta codul tău cu al ei:
-    // int newWorkoutId = await DatabaseDAO.createWorkout(userId);
-    // await DatabaseDAO.insertSets(newWorkoutId, sets);
-    // --------------------------
+    // --- CONEXIUNEA REALĂ CU BAZA DE DATE ---
+    int newWorkoutId = await DatabaseDAO.createWorkout(userId);
+    await DatabaseDAO.insertSets(newWorkoutId, sets);
 
     return Response.ok(
-      json.encode({
-        'status': 'success', 
-        'message': 'Antrenamentul si seturile sunt pregatite pentru baza de date!',
-        'setsProcessed': sets.length
-      }),
+      json.encode({'status': 'success', 'message': 'Antrenamentul a fost salvat in MySQL!', 'setsProcessed': sets.length}),
       headers: {'Content-Type': 'application/json'},
     );
 
@@ -96,7 +86,7 @@ Future<Response> _createWorkoutHandler(Request req) async {
   }
 }
 
-// 3. Logica pentru Evaluarea Efortului (F3 - RPE)
+// 3. Logica pentru Evaluarea Efortului (F3 + F5)
 Future<Response> _logRpeHandler(Request req) async {
   try {
     final payload = await req.readAsString();
@@ -112,7 +102,6 @@ Future<Response> _logRpeHandler(Request req) async {
       );
     }
 
-    // Validăm ca valoarea RPE să fie exact cum cere baza de date (între 1 și 10)
     if (rpeValue < 1 || rpeValue > 10) {
        return Response.badRequest(
         body: json.encode({'status': 'error', 'message': 'RPE trebuie sa fie o nota de la 1 la 10.'}),
@@ -120,17 +109,94 @@ Future<Response> _logRpeHandler(Request req) async {
       );
     }
 
-    // --- PUNCT DE INTEGRARE ---
-    // Când Persoana 4 e gata, aici vei scrie: await DatabaseDAO.insertRpe(workoutId, rpeValue);
-    // --------------------------
+    String feedbackMessage = "";
+    if (rpeValue <= 4) {
+      feedbackMessage = "Antrenament ușor! Data viitoare încearcă să crești volumul.";
+    } else if (rpeValue >= 5 && rpeValue <= 7) {
+      feedbackMessage = "Efort solid! Ești în zona optimă pentru creștere musculară.";
+    } else if (rpeValue >= 8 && rpeValue <= 9) {
+      feedbackMessage = "Antrenament intens! Hidratează-te bine.";
+    } else if (rpeValue == 10) {
+      feedbackMessage = "Efort MAXIM! Odihnește-te pentru recuperare.";
+    }
+
+    // --- CONEXIUNEA REALĂ CU BAZA DE DATE ---
+    await DatabaseDAO.insertRpe(workoutId, rpeValue);
 
     return Response.ok(
-      json.encode({'status': 'success', 'message': 'RPE-ul a fost pregatit pentru salvare!'}),
+      json.encode({'status': 'success', 'message': 'RPE salvat cu succes!', 'ai_feedback': feedbackMessage}),
       headers: {'Content-Type': 'application/json'},
     );
 
   } catch (e) {
     return Response.internalServerError(body: json.encode({'error': 'Eroare de procesare: $e'}));
+  }
+}
+
+// 4. Logica pentru Hidratare (F7)
+Future<Response> _logHydrationHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final ml = data['ml']; 
+
+    if (userId == null || ml == null) {
+       return Response.badRequest(body: json.encode({'status': 'error', 'message': 'Date incomplete.'}));
+    }
+
+    // --- CONEXIUNEA REALĂ CU BAZA DE DATE ---
+    await DatabaseDAO.insertHydration(userId, ml);
+
+    return Response.ok(json.encode({'status': 'success', 'message': '${ml}ml de apa salvati in MySQL!'}));
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
+  }
+}
+
+// 5. Logica pentru Nutriție (F9)
+Future<Response> _logNutritionHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final calories = data['calories'];
+
+    if (userId == null || calories == null) {
+       return Response.badRequest(body: json.encode({'status': 'error', 'message': 'Date incomplete.'}));
+    }
+
+    // --- CONEXIUNEA REALĂ CU BAZA DE DATE ---
+    await DatabaseDAO.insertNutrition(userId, calories);
+
+    return Response.ok(json.encode({'status': 'success', 'message': '${calories} kcal salvate in MySQL!'}));
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
+  }
+}
+
+// 6. Logica pentru Obiective (F2)
+Future<Response> _setGoalHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final muscleGroup = data['muscle_group'];
+    final targetSets = data['target_sets'];
+
+    if (userId == null || muscleGroup == null || targetSets == null) {
+       return Response.badRequest(body: json.encode({'status': 'error', 'message': 'Date incomplete.'}));
+    }
+
+    // --- CONEXIUNEA REALĂ CU BAZA DE DATE ---
+    await DatabaseDAO.insertGoal(userId, muscleGroup, targetSets);
+
+    return Response.ok(json.encode({'status': 'success', 'message': 'Obiectivul a fost salvat in MySQL!'}));
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
   }
 }
 

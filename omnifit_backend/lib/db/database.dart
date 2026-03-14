@@ -3,12 +3,11 @@ import 'package:mysql1/mysql1.dart';
 class Database {
   static Future<MySqlConnection> connect() async {
     final settings = ConnectionSettings(
-      host: 'localhost', // Serverul este pe laptopul tău
-      port: 3306, // Portul standard pentru MySQL
-      user: 'root', // Aici pui userul tău din DBngin (de obicei este 'root')
-      password:
-          '', // Aici pui parola (dacă nu ai pus nicio parolă la DBngin, lasă gol așa: '')
-      db: 'omnifit', // Numele bazei tale de date pe care ai creat-o cu CREATE DATABASE
+      host: '127.0.0.1', // 🔥 SECRETUL PENTRU MAC: 127.0.0.1 în loc de localhost
+      port: 3306,
+      user: 'root',
+      password: '', // Lasă gol dacă nu ai parolă în DBngin/MAMP
+      db: 'omnifit',
     );
 
     return await MySqlConnection.connect(settings);

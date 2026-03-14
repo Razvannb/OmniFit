@@ -28,16 +28,16 @@ class WorkoutDao {
       [userId],
     );
 
-    // Updates the creation date/time of a workout session.
-    Future<void> updateWorkout(Workout workout) async {
-      await _conn.query(
-        // Executes an UPDATE query to modify the date_created timestamp for a specific workout session.
-        'UPDATE Workouts SET date_created = ? WHERE id = ?',
-        [workout.dateCreated, workout.id],
-      );
-    }
-
     // Converts the raw MySQL rows into a list of Workout Dart objects.
     return results.map((row) => Workout.fromRow(row.fields)).toList();
+  }
+
+  // Updates the creation date/time of a specific workout session.
+  Future<void> updateWorkout(Workout workout) async {
+    await _conn.query(
+      // Executes an UPDATE query to modify the date_created timestamp for a record identified by its unique ID.
+      'UPDATE Workouts SET date_created = ? WHERE id = ?',
+      [workout.dateCreated, workout.id],
+    );
   }
 }

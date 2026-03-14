@@ -17,7 +17,7 @@ class MeditationDao {
     );
   }
 
-  // obtains a list of all meditation sessions for a specific user, sorted from newest to oldest.
+  // Obtains a list of all meditation sessions for a specific user, sorted from newest to oldest.
   Future<List<MeditationLog>> getMeditationByUser(int userId) async {
     var results = await _conn.query(
       // Executes a SELECT query filtering by user_id.
@@ -25,16 +25,17 @@ class MeditationDao {
       [userId],
     );
 
-    // Updates the duration of a previously logged meditation session.
-    Future<void> updateMeditation(MeditationLog log) async {
-      await _conn.query(
-        // Executes an UPDATE query to modify the duration_minutes for a record identified by its unique ID.
-        'UPDATE MeditationLog SET duration_minutes = ? WHERE id = ?',
-        [log.durationMinutes, log.id],
-      );
-    }
-
     // Converts the raw MySQL rows into a list of MeditationLog Dart objects.
     return results.map((row) => MeditationLog.fromRow(row.fields)).toList();
+  }
+
+  // Updates the duration of a previously logged meditation session.
+  // This is now correctly placed as a separate method at the class level.
+  Future<void> updateMeditation(MeditationLog log) async {
+    await _conn.query(
+      // Executes an UPDATE query to modify the duration_minutes for a record identified by its unique ID.
+      'UPDATE MeditationLog SET duration_minutes = ? WHERE id = ?',
+      [log.durationMinutes, log.id],
+    );
   }
 }

@@ -1,39 +1,38 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
+/// [PosePainter] is now strictly a View element (a dumb component).
+/// Its ONLY responsibility is to draw dots and lines on the screen.
+/// It contains NO business logic, NO math, and NO state.
 class PosePainter extends CustomPainter {
   final List<Pose> poses;
   final Size absoluteImageSize;
   final InputImageRotation rotation;
+  final String exerciseType;
 
-  PosePainter(this.poses, this.absoluteImageSize, this.rotation);
-
-  // The magic function from your plan to calculate the angle
-  double calculateAngle(Offset first, Offset middle, Offset last) {
-    double result =
-        math.atan2(last.dy - middle.dy, last.dx - middle.dx) -
-        math.atan2(first.dy - middle.dy, first.dx - middle.dx);
-    double angle = result * 180 / math.pi;
-    angle = angle.abs();
-    if (angle > 180) angle = 360 - angle;
-    return angle;
-  }
+  PosePainter(
+    this.poses,
+    this.absoluteImageSize,
+    this.rotation,
+    this.exerciseType,
+  );
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Styling for the joints (dots)
     final pointPaint = Paint()
       ..style = PaintingStyle.fill
       ..strokeWidth = 4.0
-      ..color = Colors.greenAccent; // Points color
+      ..color = Colors.greenAccent;
 
+    // Styling for the bones (lines)
     final bonePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6.0
-      ..color = Colors.white; // Color of the lines between points (bones)
+      ..color = Colors.white;
 
     for (final pose in poses) {
-      // 1. Draw all detected points on the body
+      // Draw all detected joints on the body
       pose.landmarks.forEach((_, landmark) {
         final double x = translateX(
           landmark.x,
@@ -50,96 +49,74 @@ class PosePainter extends CustomPainter {
         canvas.drawCircle(Offset(x, y), 4, pointPaint);
       });
 
-      // 2. Extract specific points for the Squat (using the right leg)
-      final rightHip = pose.landmarks[PoseLandmarkType.rightHip];
-      final rightKnee = pose.landmarks[PoseLandmarkType.rightKnee];
-      final rightAnkle = pose.landmarks[PoseLandmarkType.rightAnkle];
-
-      // If the AI clearly sees the hip, knee, and ankle, perform the calculations
-      if (rightHip != null && rightKnee != null && rightAnkle != null) {
-        // Transform coordinates
-        final hipPos = Offset(
-          translateX(rightHip.x, rotation, size, absoluteImageSize),
-          translateY(rightHip.y, rotation, size, absoluteImageSize),
-        );
-        final kneePos = Offset(
-          translateX(rightKnee.x, rotation, size, absoluteImageSize),
-          translateY(rightKnee.y, rotation, size, absoluteImageSize),
-        );
-        final anklePos = Offset(
-          translateX(rightAnkle.x, rotation, size, absoluteImageSize),
-          translateY(rightAnkle.y, rotation, size, absoluteImageSize),
-        );
-
-        // Draw leg lines (Hip -> Knee -> Ankle)
-        canvas.drawLine(hipPos, kneePos, bonePaint);
-        canvas.drawLine(kneePos, anklePos, bonePaint);
-
-        // Calculate the knee angle
-        final double kneeAngle = calculateAngle(hipPos, kneePos, anklePos);
-
-        // 3. Feedback logic (Squat)
-        String feedbackText = "GO LOWER!";
-        Color feedbackColor = Colors.redAccent;
-
-        if (kneeAngle < 90.0) {
-          feedbackText = "PERFECT!";
-          feedbackColor = Colors.greenAccent;
-        }
-
-        // 4. Draw the angle and feedback on the screen
-        _drawText(
+      // Draw the specific connecting lines based on the selected exercise
+      if (exerciseType == 'Squat') {
+        _drawBones(
           canvas,
-          "${kneeAngle.toStringAsFixed(0)}°",
-          kneePos,
-          Colors.yellow,
+          size,
+          pose,
+          bonePaint,
+          PoseLandmarkType.rightHip,
+          PoseLandmarkType.rightKnee,
+          PoseLandmarkType.rightAnkle,
         );
-        _drawFeedback(canvas, size, feedbackText, feedbackColor);
+      } else if (exerciseType == 'Pushup') {
+        _drawBones(
+          canvas,
+          size,
+          pose,
+          bonePaint,
+          PoseLandmarkType.rightShoulder,
+          PoseLandmarkType.rightElbow,
+          PoseLandmarkType.rightWrist,
+        );
       }
     }
   }
 
-  // Helper to draw the degrees right next to the knee
-  void _drawText(Canvas canvas, String text, Offset position, Color color) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset(position.dx + 10, position.dy - 10));
-  }
+  /// Helper function to draw lines between 3 specific joints
+  void _drawBones(
+    Canvas canvas,
+    Size size,
+    Pose pose,
+    Paint bonePaint,
+    PoseLandmarkType p1,
+    PoseLandmarkType p2,
+    PoseLandmarkType p3,
+  ) {
+    final joint1 = pose.landmarks[p1];
+    final joint2 = pose.landmarks[p2];
+    final joint3 = pose.landmarks[p3];
 
-  // Helper to draw "GO LOWER!" or "PERFECT!" at the top of the screen
-  void _drawFeedback(Canvas canvas, Size size, String text, Color color) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 40,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset((size.width - textPainter.width) / 2, 50));
+    // If all 3 joints are visible, draw the lines connecting them
+    if (joint1 != null && joint2 != null && joint3 != null) {
+      final pos1 = Offset(
+        translateX(joint1.x, rotation, size, absoluteImageSize),
+        translateY(joint1.y, rotation, size, absoluteImageSize),
+      );
+      final pos2 = Offset(
+        translateX(joint2.x, rotation, size, absoluteImageSize),
+        translateY(joint2.y, rotation, size, absoluteImageSize),
+      );
+      final pos3 = Offset(
+        translateX(joint3.x, rotation, size, absoluteImageSize),
+        translateY(joint3.y, rotation, size, absoluteImageSize),
+      );
+
+      canvas.drawLine(pos1, pos2, bonePaint);
+      canvas.drawLine(pos2, pos3, bonePaint);
+    }
   }
 
   @override
   bool shouldRepaint(covariant PosePainter oldDelegate) {
     return oldDelegate.poses != poses ||
         oldDelegate.absoluteImageSize != absoluteImageSize ||
-        oldDelegate.rotation != rotation;
+        oldDelegate.rotation != rotation ||
+        oldDelegate.exerciseType != exerciseType;
   }
 
+  // --- Translation Helpers for Camera Aspect Ratio ---
   double translateX(
     double x,
     InputImageRotation rotation,

@@ -50,22 +50,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     fetchWorkoutData();
   }
 
-Future<void> fetchWorkoutData() async {
-    final url = Uri.parse('http://192.168.171.172:8080/api/get-workout');
+  Future<void> fetchWorkoutData() async {
+    final url = Uri.parse(
+      'http://192.168.171.172:8080/api/get-workout?user_id=1',
+    );
 
     try {
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
-        
+
         List<WorkoutItem> fetchedWorkouts = data.map<WorkoutItem>((item) {
           return WorkoutItem(
             name: item['workoutName'] ?? 'Antrenament Necunoscut',
-            date: item['date'] != null ? DateTime.parse(item['date']) : DateTime.now(),
+            date: item['date'] != null
+                ? DateTime.parse(item['date'])
+                : DateTime.now(),
             globalRestTime: item['globalRestTime']?.toString() ?? '60',
             rpe: (item['rpe'] ?? 5.0).toDouble(),
-            exercises: <ExerciseItem>[], 
+            exercises: <ExerciseItem>[],
           );
         }).toList();
 
@@ -73,7 +77,7 @@ Future<void> fetchWorkoutData() async {
           _savedWorkouts.clear();
           _savedWorkouts.addAll(fetchedWorkouts);
         });
-        
+
         print("Date încărcate cu succes de pe server!");
       } else {
         print("Eroare la server: ${response.statusCode}");
@@ -359,23 +363,26 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   Future<void> sendWorkoutData(WorkoutItem workout) async {
     final url = Uri.parse('http://192.168.171.172:8080/api/save-workout');
 
-    List<Map<String, dynamic>> exercisesJson = workout.exercises.map<Map<String, dynamic>>((ex) {
-      return {
-        "exerciseName": ex.name,
-        "muscleGroup": ex.muscleGroup,
-        "sets": ex.reps.length,
-        "reps": ex.reps.join(","), 
-        "recoveryBetweenSets": int.tryParse(workout.globalRestTime) ?? 60,
-        "recoveryExercise": int.tryParse(ex.restBetweenExercise) ?? 30,
-      };
-    }).toList();
+    List<Map<String, dynamic>> exercisesJson = workout.exercises
+        .map<Map<String, dynamic>>((ex) {
+          return {
+            "exerciseName": ex.name,
+            "muscleGroup": ex.muscleGroup,
+            "sets": ex.reps.length,
+            "reps": ex.reps.join(","),
+            "recoveryBetweenSets": int.tryParse(workout.globalRestTime) ?? 60,
+            "recoveryExercise": int.tryParse(ex.restBetweenExercise) ?? 30,
+          };
+        })
+        .toList();
 
     Map<String, dynamic> workoutData = {
+      "user_id": 1,
       "workoutName": workout.name,
-      "date": workout.date.toIso8601String(), 
+      "date": workout.date.toIso8601String(),
       "rpe": workout.rpe,
       "globalRestTime": int.tryParse(workout.globalRestTime) ?? 60,
-      "exercises": exercisesJson 
+      "exercises": exercisesJson,
     };
 
     try {

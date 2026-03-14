@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omnifit/screens/nutrition_screen.dart';
 import 'workout_screen.dart'; 
 import '../ai_vision/pose_detector_view.dart';
 import 'dashboard_screen.dart';
@@ -28,7 +29,7 @@ class _MainScreenState extends State<MainScreen> {
         },
       ),
       const WorkoutScreen(),                                                       
-      const Center(child: Text('Calories Tracker', style: TextStyle(fontSize: 24))),
+      const NutritionScreen(userId: 1),
       const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),
       const PoseDetectorView(),                                                    
     ];

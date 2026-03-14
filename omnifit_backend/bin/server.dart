@@ -96,7 +96,7 @@ Future<Response> _createWorkoutHandler(Request req) async {
   }
 }
 
-// 3. Logica pentru Evaluarea Efortului (F3 - RPE)
+// 3. Logica ACTUALIZATĂ pentru Evaluarea Efortului (F3 + F5 - Feedback Adaptiv)
 Future<Response> _logRpeHandler(Request req) async {
   try {
     final payload = await req.readAsString();
@@ -112,7 +112,6 @@ Future<Response> _logRpeHandler(Request req) async {
       );
     }
 
-    // Validăm ca valoarea RPE să fie exact cum cere baza de date (între 1 și 10)
     if (rpeValue < 1 || rpeValue > 10) {
        return Response.badRequest(
         body: json.encode({'status': 'error', 'message': 'RPE trebuie sa fie o nota de la 1 la 10.'}),
@@ -120,12 +119,28 @@ Future<Response> _logRpeHandler(Request req) async {
       );
     }
 
-    // --- PUNCT DE INTEGRARE ---
-    // Când Persoana 4 e gata, aici vei scrie: await DatabaseDAO.insertRpe(workoutId, rpeValue);
-    // --------------------------
+    // --- LOGICA INTELIGENTĂ (F5) ---
+    String feedbackMessage = "";
+    if (rpeValue <= 4) {
+      feedbackMessage = "A fost un antrenament ușor de încălzire! Data viitoare încearcă să crești puțin greutățile sau volumul.";
+    } else if (rpeValue >= 5 && rpeValue <= 7) {
+      feedbackMessage = "Efort solid! Ești în zona optimă pentru creștere musculară. Continuă tot așa!";
+    } else if (rpeValue >= 8 && rpeValue <= 9) {
+      feedbackMessage = "Antrenament intens! Ai tras tare azi. Asigură-te că te hidratezi bine și mănânci destule proteine.";
+    } else if (rpeValue == 10) {
+      feedbackMessage = "Efort MAXIM! Ai dat tot ce ai putut. Acum urmează partea cea mai importantă: odihna absolută pentru recuperare!";
+    }
 
+    // --- PUNCT DE INTEGRARE Persoana 4 ---
+    // Când Persoana 4 e gata: await DatabaseDAO.insertRpe(workoutId, rpeValue);
+
+    // Returnăm mesajul personalizat către aplicația mobilă
     return Response.ok(
-      json.encode({'status': 'success', 'message': 'RPE-ul a fost pregatit pentru salvare!'}),
+      json.encode({
+        'status': 'success', 
+        'message': 'RPE salvat cu succes!',
+        'ai_feedback': feedbackMessage // Frontend-ul va citi și afișa acest mesaj!
+      }),
       headers: {'Content-Type': 'application/json'},
     );
 
@@ -133,7 +148,6 @@ Future<Response> _logRpeHandler(Request req) async {
     return Response.internalServerError(body: json.encode({'error': 'Eroare de procesare: $e'}));
   }
 }
-
 // Pornirea serverului
 void main(List<String> args) async {
   final ip = InternetAddress.anyIPv4;

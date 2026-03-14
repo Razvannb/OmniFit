@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:omnifit/screens/goals_screen.dart';
 import 'package:omnifit/screens/nutrition_screen.dart';
 import 'workout_screen.dart'; 
 import '../ai_vision/pose_detector_view.dart';
@@ -25,12 +26,15 @@ class _MainScreenState extends State<MainScreen> {
     final List<Widget> screens = [
       DashboardScreen(
         onAddWorkout: () {
-          _onItemTapped(1); 
+          _onItemTapped(1); // Navigate to the Workouts tab
+        },
+        onViewGoals: () {
+          _onItemTapped(3); // Navigate to the Goals tab
         },
       ),
       const WorkoutScreen(),                                                       
       const NutritionScreen(userId: 1),
-      const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),
+      const GoalScreen(userId: 1),
       const PoseDetectorView(),                                                    
     ];
 

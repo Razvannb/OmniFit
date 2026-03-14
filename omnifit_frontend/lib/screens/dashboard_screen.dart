@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
+import 'hydration_screen.dart'; 
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback onAddWorkout;
-  const DashboardScreen({super.key, required this.onAddWorkout});
+  final VoidCallback onViewGoals;
+
+  const DashboardScreen({
+    super.key,
+    required this.onAddWorkout,
+    required this.onViewGoals,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +33,7 @@ class DashboardScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
             },
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -66,7 +73,11 @@ class DashboardScreen extends StatelessWidget {
       children: [
         Text(
           'Hello, Champion! 👋',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         SizedBox(height: 4),
         Text(
@@ -111,7 +122,11 @@ class DashboardScreen extends StatelessWidget {
           width: 80,
           child: Text(
             title,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ),
         Expanded(
@@ -120,7 +135,9 @@ class DashboardScreen extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white.withOpacity(0.1),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Colors.blueAccent,
+              ),
               minHeight: 8,
             ),
           ),
@@ -131,7 +148,11 @@ class DashboardScreen extends StatelessWidget {
           child: Text(
             '$current/$target',
             textAlign: TextAlign.right,
-            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -147,15 +168,40 @@ class DashboardScreen extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        _buildSquareActionCard(Icons.add_box, 'Add\nWorkout', Colors.blue, onAddWorkout),
-        _buildSquareActionCard(Icons.insert_chart_outlined, 'View\nProgress', Colors.purple, () {}),
-        _buildSquareActionCard(Icons.water_drop_outlined, 'Log\nHydration', Colors.lightBlue, () {}),
-        _buildSquareActionCard(Icons.self_improvement_outlined, 'Start\nMeditation', Colors.teal, () {}),
+        _buildSquareActionCard(
+          Icons.add_box,
+          'Add\nWorkout',
+          Colors.blue,
+          onAddWorkout,
+        ),
+        _buildSquareActionCard(
+          Icons.insert_chart_outlined,
+          'View\nGoals',
+          Colors.purple,
+          onViewGoals,
+        ),
+        _buildSquareActionCard(
+          Icons.water_drop_outlined,
+          'Log\nHydration',
+          Colors.lightBlue,
+          () {},
+        ),
+        _buildSquareActionCard(
+          Icons.self_improvement_outlined,
+          'Start\nMeditation',
+          Colors.teal,
+          () {},
+        ),
       ],
     );
   }
 
-  Widget _buildSquareActionCard(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _buildSquareActionCard(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -186,7 +232,11 @@ class DashboardScreen extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
           ],
         ),
@@ -212,7 +262,11 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 Text(
                   'AI Insight',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent, fontSize: 12),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                    fontSize: 12,
+                  ),
                 ),
                 SizedBox(height: 4),
                 Text(

@@ -272,7 +272,7 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
                       fit: StackFit.expand,
                       children: [
                         CameraPreview(_cameraController!),
-                        if (_customPaint != null) _customPaint!,
+                        ?_customPaint,
                       ],
                     ),
                   ),

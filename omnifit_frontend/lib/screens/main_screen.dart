@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'workout_screen.dart'; 
-import '../ai_vision/pose_detector_view.dart'; 
+import '../ai_vision/pose_detector_view.dart';
+import 'dashboard_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -10,15 +11,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 1;
-
-  final List<Widget> _screens = [
-    const Center(child: Text('Home Dashboard', style: TextStyle(fontSize: 24))),
-    const WorkoutScreen(),                                                       
-    const Center(child: Text('Calories Tracker', style: TextStyle(fontSize: 24))),
-    const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),
-    const PoseDetectorView(),                                                    
-  ];
+  int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
     setState(() {
@@ -28,8 +21,20 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      DashboardScreen(
+        onAddWorkout: () {
+          _onItemTapped(1); 
+        },
+      ),
+      const WorkoutScreen(),                                                       
+      const Center(child: Text('Calories Tracker', style: TextStyle(fontSize: 24))),
+      const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),
+      const PoseDetectorView(),                                                    
+    ];
+
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: screens[_selectedIndex],
       
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed, 

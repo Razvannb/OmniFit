@@ -28,4 +28,13 @@ class NutritionDao {
     // Converts the raw MySQL rows into a list of NutritionLog Dart objects.
     return results.map((row) => NutritionLog.fromRow(row.fields)).toList();
   }
+
+  // Updates the calorie count for a specific nutrition log entry.
+  Future<void> updateNutrition(NutritionLog log) async {
+    await _conn.query(
+      // Executes an UPDATE query to modify the calories for a record identified by its unique ID.
+      'UPDATE NutritionLog SET calories = ? WHERE id = ?',
+      [log.calories, log.id],
+    );
+  }
 }

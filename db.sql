@@ -11,21 +11,25 @@ CREATE TABLE Users (
 CREATE TABLE Workouts(
 	id INT AUTO_INCREMENT PRIMARY KEY,
 	user_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    rpe FLOAT DEFAULT 5.0,
 	date_created DATETIME DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
+
 CREATE TABLE Sets (
 	id INT AUTO_INCREMENT PRIMARY KEY,
 	workoutID INT NOT NULL, 
-	exerciseName VARCHAR(50) NOT NULL, 
-	setOrder INT NOT NULL, 
-	reps INT NOT NULL,
-	weight FLOAT DEFAULT 0, 
+	exerciseName VARCHAR(100) NOT NULL, 
+    muscleGroup VARCHAR(50),
+    setsCount INT,
+	reps VARCHAR(100), 
 	recoveryBetweenSets INT, 
 	recoveryExercise INT, 
 	FOREIGN KEY (workoutID) REFERENCES Workouts(id) ON DELETE CASCADE
 );
+
 
 CREATE TABLE Goals(
 	id INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,3 +69,5 @@ CREATE TABLE MeditationLog(
     date_logged DATE DEFAULT (CURRENT_DATE),
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
+
+INSERT IGNORE INTO Users (id, username, email, password) VALUES (1, 'testuser', 'test@test.com', '12345');

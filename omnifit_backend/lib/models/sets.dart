@@ -8,9 +8,8 @@ class ExerciseSet {
   double weight; // The weight used.
 
   // NEW FIELDS from documentation:
-  int recoveryBetweenSets; // Rest time between sets (in seconds)[cite: 12, 26].
-  int
-  recoveryExercise; // Rest time between different exercises (in seconds)[cite: 12, 26].
+  int recoveryBetweenSets; // Rest time between sets (in seconds)
+  int recoveryExercise; // Rest time between different exercises (in seconds)
 
   // Updated constructor
   ExerciseSet({

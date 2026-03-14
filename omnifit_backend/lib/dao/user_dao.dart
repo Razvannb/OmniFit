@@ -25,19 +25,20 @@ class UserDao {
       [email],
     );
 
-    // Updates user profile information (username, email, or password).
-    Future<void> updateUser(User user) async {
-      await _conn.query(
-        // Executes an UPDATE query to modify user credentials for a record identified by its unique ID.
-        'UPDATE Users SET username = ?, email = ?, password = ? WHERE id = ?',
-        [user.username, user.email, user.password, user.id],
-      );
-    }
-
     // If no user is found with the provided email, return null.
     if (result.isEmpty) return null;
 
     // Converts the first matching MySQL row into a User Dart object.
     return User.fromRow(result.first.fields);
+  }
+
+  // Updates user profile information (username, email, or password).
+  // This must be a separate method within the class.
+  Future<void> updateUser(User user) async {
+    await _conn.query(
+      // Executes an UPDATE query to modify user credentials for a record identified by its unique ID.
+      'UPDATE Users SET username = ?, email = ?, password = ? WHERE id = ?',
+      [user.username, user.email, user.password, user.id],
+    );
   }
 }

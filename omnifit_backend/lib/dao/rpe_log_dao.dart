@@ -25,19 +25,20 @@ class RpeLogDao {
       [workoutId],
     );
 
-    // Updates a previously logged RPE (Rate of Perceived Exertion) score.
-    Future<void> updateRpeLog(RpeLog log) async {
-      await _conn.query(
-        // Executes an UPDATE query to modify the rpe_value for a record identified by its unique ID.
-        'UPDATE RPE_Log SET rpe_value = ? WHERE id = ?',
-        [log.rpeValue, log.id],
-      );
-    }
-
     // If no RPE score was logged for this workout, return null.
     if (results.isEmpty) return null;
 
     // Converts the first (and only) matching MySQL row into an RpeLog Dart object.
     return RpeLog.fromRow(results.first.fields);
+  }
+
+  // Updates a previously logged RPE (Rate of Perceived Exertion) score.
+  // This is now a separate method at the class level.
+  Future<void> updateRpeLog(RpeLog log) async {
+    await _conn.query(
+      // Executes an UPDATE query to modify the rpe_value for a record identified by its unique ID.
+      'UPDATE RPE_Log SET rpe_value = ? WHERE id = ?',
+      [log.rpeValue, log.id],
+    );
   }
 }

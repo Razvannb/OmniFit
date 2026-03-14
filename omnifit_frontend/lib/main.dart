@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
-import 'screens/workout_screen.dart';
+import 'screens/main_screen.dart'; 
 
 void main() {
   runApp(const OmniFitApp());
@@ -11,14 +10,13 @@ void main() {
 final GoRouter _router = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
     GoRoute(
-      path: '/dashboard',
-      builder: (context, state) => const DashboardScreen(),
+      path: '/',
+      builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
-      path: '/workout',
-      builder: (context, state) => const WorkoutScreen(),
+      path: '/dashboard',
+      builder: (context, state) => const MainScreen(), 
     ),
   ],
 );
@@ -34,7 +32,7 @@ class OmniFitApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      routerConfig: _router,
+      routerConfig: _router, 
     );
   }
 }

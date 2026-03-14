@@ -1,19 +1,36 @@
 import 'package:flutter/material.dart';
 
+
 class ExerciseItem {
+  final String id; 
   String name;
   String muscleGroup;
   List<String> reps;
   String restBetweenExercise; 
-  String restBetweenSets;    
 
   ExerciseItem({
     required this.name,
     required this.muscleGroup,
     required this.reps,
     required this.restBetweenExercise,
-    this.restBetweenSets = '', 
-  });
+  }) : id = UniqueKey().toString(); 
+}
+
+class WorkoutItem {
+  final String id;
+  String name;
+  DateTime date;
+  List<ExerciseItem> exercises;
+  String globalRestTime;
+  double rpe;
+
+  WorkoutItem({
+    required this.name,
+    required this.date,
+    required this.exercises,
+    required this.globalRestTime,
+    required this.rpe,
+  }) : id = UniqueKey().toString();
 }
 
 
@@ -25,14 +42,199 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
-  final List<ExerciseItem> _exercises = [];
-  
-  final _betweenSetsController = TextEditingController(text: '60');
+  final List<WorkoutItem> _savedWorkouts = [];
+
+  void _navigateToLogWorkout({int? index}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LogWorkoutScreen(
+          workoutToEdit: index != null ? _savedWorkouts[index] : null,
+        ),
+      ),
+    );
+
+    if (result != null && result is WorkoutItem) {
+      setState(() {
+        if (index != null) {
+          _savedWorkouts[index] = result;
+        } else {
+          _savedWorkouts.insert(0, result);
+        }
+      });
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Workouts', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton.icon(
+                onPressed: () => _navigateToLogWorkout(),
+                icon: const Icon(Icons.add, size: 28),
+                label: const Text('Add Workout', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            Expanded(
+              child: _savedWorkouts.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No workouts yet.\nTap "Add Workout" to start!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey, fontSize: 18),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _savedWorkouts.length,
+                      itemBuilder: (context, index) {
+                        final workout = _savedWorkouts[index];
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          margin: const EdgeInsets.only(bottom: 15),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      workout.name,
+                                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                    ),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                                          onPressed: () => _navigateToLogWorkout(index: index),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                          onPressed: () {
+                                            setState(() { _savedWorkouts.removeAt(index); });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 5),
+                                    Text(_formatDate(workout.date), style: const TextStyle(color: Colors.grey)),
+                                  ],
+                                ),
+                                const SizedBox(height: 15),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('${workout.exercises.length} exercises', style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                                    Text('RPE: ${workout.rpe.round()}/10', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class LogWorkoutScreen extends StatefulWidget {
+  final WorkoutItem? workoutToEdit;
+
+  const LogWorkoutScreen({super.key, this.workoutToEdit});
+
+  @override
+  State<LogWorkoutScreen> createState() => _LogWorkoutScreenState();
+}
+
+class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
+  final TextEditingController _workoutNameController = TextEditingController();
+  List<ExerciseItem> _exercises = [];
+  String _globalRestTime = '60';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.workoutToEdit != null) {
+      _workoutNameController.text = widget.workoutToEdit!.name;
+      _globalRestTime = widget.workoutToEdit!.globalRestTime;
+      _exercises = List.from(widget.workoutToEdit!.exercises);
+    }
+  }
 
   @override
   void dispose() {
-    _betweenSetsController.dispose();
+    _workoutNameController.dispose();
     super.dispose();
+  }
+
+  void _editGlobalRestTime() {
+    TextEditingController editController = TextEditingController(text: _globalRestTime);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Between Sets Rest Time'),
+          content: TextField(
+            controller: editController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Seconds', border: OutlineInputBorder()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() { _globalRestTime = ''; });
+                Navigator.pop(context);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() { _globalRestTime = editController.text; });
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      }
+    );
   }
 
   void _navigateToAddExercise({int? index}) async {
@@ -48,24 +250,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (result != null && result is ExerciseItem) {
       setState(() {
         if (index != null) {
-          result.restBetweenSets = _exercises[index].restBetweenSets;
           _exercises[index] = result; 
         } else {
-          result.restBetweenSets = _betweenSetsController.text;
           _exercises.add(result); 
         }
       });
     }
   }
 
-  void _showRpeDialog() {
-    double currentSliderValue = 5;
+  void _showEffortEvaluationDialog() {
+    if (_workoutNameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a Workout Name!')));
+      return;
+    }
+
+    double currentSliderValue = widget.workoutToEdit?.rpe ?? 5.0; 
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setStateDialog) { 
             String difficultyTitle = '';
             String difficultyDescription = '';
 
@@ -82,17 +287,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              title: const Text('Effort Evaluation (RPE)', textAlign: TextAlign.center),
+              title: const Text('Effort Evaluation', textAlign: TextAlign.center),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     difficultyTitle,
-                    style: TextStyle(
-                      fontSize: 24, 
-                      fontWeight: FontWeight.bold,
-                      color: currentSliderValue <= 3 ? Colors.green : (currentSliderValue <= 7 ? Colors.orange : Colors.red),
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: currentSliderValue <= 3 ? Colors.green : (currentSliderValue <= 7 ? Colors.orange : Colors.red)),
                   ),
                   const SizedBox(height: 10),
                   Text(difficultyDescription, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Colors.grey)),
@@ -105,7 +306,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     label: currentSliderValue.round().toString(),
                     activeColor: Colors.blueAccent,
                     onChanged: (double value) {
-                      setState(() { currentSliderValue = value; });
+                      setStateDialog(() { currentSliderValue = value; });
                     },
                   ),
                   const Row(
@@ -119,18 +320,28 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.of(context).pop(), 
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    final finalWorkout = WorkoutItem(
+                      name: _workoutNameController.text,
+                      date: widget.workoutToEdit?.date ?? DateTime.now(),
+                      exercises: _exercises,
+                      globalRestTime: _globalRestTime,
+                      rpe: currentSliderValue,
+                    );
+                    
                     Navigator.of(context).pop();
+                    Navigator.of(context).pop(finalWorkout);
+                    
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Workout completely saved with RPE: ${currentSliderValue.round()}!')),
+                      const SnackBar(content: Text('Workout saved successfully!')),
                     );
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                  child: const Text('Confirm & Save'),
+                  child: const Text('Save & Finish'),
                 ),
               ],
             );
@@ -144,7 +355,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Workout'),
+        title: Text(widget.workoutToEdit == null ? 'New Workout' : 'Edit Workout'),
         backgroundColor: Colors.blueAccent,
         foregroundColor: Colors.white,
       ),
@@ -152,6 +363,18 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            TextField(
+              controller: _workoutNameController,
+              decoration: const InputDecoration(
+                labelText: 'Workout Name (e.g., Upper Body Push)',
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 15),
+
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -164,16 +387,39 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
             const SizedBox(height: 15),
             
-            TextField(
-              controller: _betweenSetsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Between Sets Rest Time (seconds)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.timer),
-                isDense: true,
+            if (_globalRestTime.isNotEmpty && _globalRestTime != '0')
+              InkWell(
+                onTap: _editGlobalRestTime,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.timer_outlined, color: Colors.orange, size: 24),
+                      const SizedBox(width: 8),
+                      Text('Rest Between Sets: $_globalRestTime sec', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.edit, color: Colors.orange, size: 18),
+                    ],
+                  ),
+                ),
+              )
+            else
+              TextButton.icon(
+                onPressed: () {
+                  setState(() { _globalRestTime = '60'; });
+                  _editGlobalRestTime();
+                },
+                icon: const Icon(Icons.add_alarm, color: Colors.blueAccent),
+                label: const Text('Add Rest Time Between Sets', style: TextStyle(color: Colors.blueAccent, fontSize: 16)),
               ),
-            ),
+              
             const SizedBox(height: 15),
             
             Expanded(
@@ -183,43 +429,26 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                       itemCount: _exercises.length,
                       itemBuilder: (context, index) {
                         final exercise = _exercises[index];
-                        return Column(
-                          children: [
-                            if (index > 0)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.timer_outlined, color: Colors.orange, size: 22),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Rest: ${exercise.restBetweenSets} sec', 
-                                      style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 16),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            
-                            Card(
-                              elevation: 3,
-                              margin: const EdgeInsets.only(bottom: 5),
-                              child: ListTile(
-                                title: Text(exercise.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Muscle: ${exercise.muscleGroup}'),
-                                    Text('Sets: ${exercise.reps.length} | Reps: ${exercise.reps.join(", ")}'),
-                                  ],
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.edit, color: Colors.blue),
-                                  onPressed: () => _navigateToAddExercise(index: index), 
-                                ),
-                              ),
+                        return Card(
+                          elevation: 3,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: ListTile(
+                            title: Text(exercise.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Muscle: ${exercise.muscleGroup}'),
+                                Text('Sets: ${exercise.reps.length} | Reps: ${exercise.reps.join(", ")}'),
+                              ],
                             ),
-                          ],
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min, 
+                              children: [
+                                IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _navigateToAddExercise(index: index)),
+                                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () { setState(() { _exercises.removeAt(index); }); }),
+                              ],
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -231,12 +460,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                 child: SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: OutlinedButton(
-                    onPressed: _showRpeDialog,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.green, width: 2),
-                      foregroundColor: Colors.green,
-                    ),
+                  child: ElevatedButton(
+                    onPressed: _showEffortEvaluationDialog, 
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                     child: const Text('Save Workout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -261,7 +487,6 @@ class AddExerciseScreen extends StatefulWidget {
 class _AddExerciseScreenState extends State<AddExerciseScreen> {
   final _exerciseNameController = TextEditingController();
   final _muscleGroupController = TextEditingController();
-  
   final _restBetweenExerciseController = TextEditingController(); 
 
   final List<TextEditingController> _repsControllers = [];
@@ -337,34 +562,20 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
           children: [
             const Text('Exercise Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            
-            TextField(
-              controller: _exerciseNameController,
-              decoration: const InputDecoration(labelText: 'Exercise Name (e.g., Squats)', border: OutlineInputBorder()),
-            ),
+            TextField(controller: _exerciseNameController, decoration: const InputDecoration(labelText: 'Exercise Name (e.g., Squats)', border: OutlineInputBorder())),
             const SizedBox(height: 10),
-
-            TextField(
-              controller: _muscleGroupController,
-              decoration: const InputDecoration(labelText: 'Muscle Group (e.g., Legs)', border: OutlineInputBorder()),
-            ),
+            TextField(controller: _muscleGroupController, decoration: const InputDecoration(labelText: 'Muscle Group (e.g., Legs)', border: OutlineInputBorder())),
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 10),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Sets & Reps', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(
-                  onPressed: _addSet,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Set'),
-                ),
+                ElevatedButton.icon(onPressed: _addSet, icon: const Icon(Icons.add), label: const Text('Add Set')),
               ],
             ),
             const SizedBox(height: 10),
-
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -377,41 +588,21 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
                       Text('Set ${index + 1}:', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                       const SizedBox(width: 15),
                       Expanded(
-                        child: TextField(
-                          controller: _repsControllers[index],
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Reps',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
+                        child: TextField(controller: _repsControllers[index], keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Reps', border: OutlineInputBorder(), isDense: true)),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _removeSet(index),
-                      ),
+                      IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _removeSet(index)),
                     ],
                   ),
                 );
               },
             ),
-
             const SizedBox(height: 10),
             const Divider(),
             const SizedBox(height: 10),
-
             const Text('Rest Time (seconds)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-
-            TextField(
-              controller: _restBetweenExerciseController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Between Exercise', border: OutlineInputBorder()),
-            ),
-            
+            TextField(controller: _restBetweenExerciseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Between Exercise', border: OutlineInputBorder())),
             const SizedBox(height: 30),
-            
             SizedBox(
               width: double.infinity,
               height: 50,

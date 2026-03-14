@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+final String baseUrl = 'http://127.0.0.1:8080';
+
 class ExerciseItem {
   final String id;
   String name;
@@ -52,7 +54,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> fetchWorkoutData() async {
     final url = Uri.parse(
-      'http://0.0.0.0:8080/api/get-workout?user_id=1',
+      '$baseUrl/api/get-workout?user_id=1',
     );
 
     try {
@@ -361,7 +363,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   }
 
   Future<void> sendWorkoutData(WorkoutItem workout) async {
-    final url = Uri.parse('http://192.168.171.172:8080/api/save-workout');
+    final url = Uri.parse('$baseUrl/api/save-workout');
 
     List<Map<String, dynamic>> exercisesJson = workout.exercises
         .map<Map<String, dynamic>>((ex) {

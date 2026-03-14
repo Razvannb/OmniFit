@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
-import 'hydration_screen.dart'; 
+//import 'hydration_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback onAddWorkout;

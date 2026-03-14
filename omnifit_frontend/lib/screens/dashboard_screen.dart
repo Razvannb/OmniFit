@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
-//import 'hydration_screen.dart';
+import 'hydration_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback onAddWorkout;
@@ -56,7 +56,7 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: _buildQuickActionsGrid(),
+              child: _buildQuickActionsGrid(context),
             ),
             const SizedBox(height: 32),
             _buildAIMessage(),
@@ -159,7 +159,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActionsGrid() {
+  Widget _buildQuickActionsGrid(BuildContext context) {
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 24,
@@ -184,7 +184,12 @@ class DashboardScreen extends StatelessWidget {
           Icons.water_drop_outlined,
           'Log\nHydration',
           Colors.lightBlue,
-          () {},
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const HydrationScreen()),
+            );
+          },
         ),
         _buildSquareActionCard(
           Icons.self_improvement_outlined,

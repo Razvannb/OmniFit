@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'workout_screen.dart'; // Importăm ecranul de antrenament creat de tine
+import 'workout_screen.dart'; 
+import '../ai_vision/pose_detector_view.dart'; 
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -9,16 +10,14 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // Setăm indexul inițial la 1 (Workouts), exact ca în imaginea ta
   int _selectedIndex = 1;
 
-  // Aici definim lista de ecrane care se vor schimba când apeși pe tab-uri
   final List<Widget> _screens = [
-    const Center(child: Text('Home Dashboard', style: TextStyle(fontSize: 24))), // 0: Home
-    const WorkoutScreen(),                                                       // 1: Workouts
-    const Center(child: Text('Calories Tracker', style: TextStyle(fontSize: 24))),// 2: Calories
-    const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),// 3: Goals
-    const Center(child: Text('AI Form Check', style: TextStyle(fontSize: 24))),   // 4: Form Check
+    const Center(child: Text('Home Dashboard', style: TextStyle(fontSize: 24))),
+    const WorkoutScreen(),                                                       
+    const Center(child: Text('Calories Tracker', style: TextStyle(fontSize: 24))),
+    const Center(child: Text('Goals & Progress', style: TextStyle(fontSize: 24))),
+    const PoseDetectorView(),                                                    
   ];
 
   void _onItemTapped(int index) {
@@ -30,20 +29,18 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Afișăm ecranul corespunzător indexului selectat
       body: _screens[_selectedIndex],
       
-      // Bara de navigație de jos
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Esențial pentru a afișa toate cele 5 tab-uri corect
+        type: BottomNavigationBarType.fixed, 
         backgroundColor: Colors.white,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.blueAccent, // Culoarea din imagine pentru cel activ
-        unselectedItemColor: Colors.grey,     // Culoarea pentru cele inactive
+        selectedItemColor: Colors.blueAccent, 
+        unselectedItemColor: Colors.grey,     
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
-        elevation: 8, // O mică umbră deasupra barei
+        elevation: 8,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -56,7 +53,6 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Workouts',
           ),
           BottomNavigationBarItem(
-            // Am înlocuit mărul cu o iconiță stabilă de Nutriție/Calorii
             icon: Icon(Icons.restaurant_outlined), 
             activeIcon: Icon(Icons.restaurant),
             label: 'Calories',

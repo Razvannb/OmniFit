@@ -4,216 +4,172 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-// --- IMPORTURILE REALE DIN PROIECTUL VOSTRU ---
+// Importurile din proiectul tău
 import 'package:omnifit_backend/db/database.dart';
-import 'package:omnifit_backend/dao/workout_dao.dart';
-import 'package:omnifit_backend/dao/sets_dao.dart';
-import 'package:omnifit_backend/dao/rpe_log_dao.dart';
-import 'package:omnifit_backend/dao/hydration_dao.dart';
-import 'package:omnifit_backend/dao/nutrition_dao.dart';
-import 'package:omnifit_backend/dao/goal_dao.dart';
 
-// Importăm și modelele necesare pentru DAO-uri
-import 'package:omnifit_backend/models/sets.dart';
-import 'package:omnifit_backend/models/rpe_log.dart';
-import 'package:omnifit_backend/models/hydration_log.dart';
-import 'package:omnifit_backend/models/nutrition_log.dart';
-import 'package:omnifit_backend/models/goal.dart';
-
-// 1. Configurăm rutele
-final router = Router()
-  ..get('/', _rootHandler)
-  ..post('/api/auth/login', _loginHandler)
-  ..post('/api/workouts', _createWorkoutHandler)
-  ..post('/api/rpe', _logRpeHandler)
-  ..post('/api/hydration', _logHydrationHandler)
-  ..post('/api/nutrition', _logNutritionHandler)
-  ..post('/api/goals', _setGoalHandler);
-
-Response _rootHandler(Request req) {
-  return Response.ok('Serverul OmniFit este UP și CONECTAT LA DB!\n');
-}
-
-Future<Response> _loginHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-    if (data['email'] != null && data['password'] != null) {
-      return Response.ok(
-        json.encode({'status': 'success', 'message': 'Te-ai logat cu succes!', 'token': 'mock_token'}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    }
-    return Response.badRequest(body: json.encode({'error': 'Email/parola incorecte'}));
-  } catch (e) {
-    return Response.internalServerError(body: 'Eroare: $e');
-  }
-}
-
-// 2. Salvarea Antrenamentelor (F1)
-Future<Response> _createWorkoutHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-
-    final userId = data['user_id'];
-    final List<dynamic>? sets = data['sets'];
-
-    if (userId == null || sets == null || sets.isEmpty) {
-      return Response.badRequest(body: json.encode({'error': 'Date incomplete.'}));
-    }
-
-    // --- CONEXIUNEA CU BAZA DE DATE ---
-    final conn = await Database.connect();
-    try {
-      final workoutDao = WorkoutDao(conn);
-      final setDao = SetDao(conn);
-
-      // 1. Creăm antrenamentul
-      int newWorkoutId = await workoutDao.createWorkout(userId);
-
-      // 2. Adăugăm fiecare set folosind modelul ExerciseSet
-      for (var setRecord in sets) {
-        // ATENȚIE: Dacă îți dă eroare cu roșu la `workoutId:`, șterge etichetele și lasă doar valorile, 
-        // ex: ExerciseSet(newWorkoutId, setRecord['exerciseName'], ...)
-        final exerciseSet = ExerciseSet(
-          workoutId: newWorkoutId,
-          exerciseName: setRecord['exerciseName'],
-          setOrder: setRecord['setOrder'],
-          reps: setRecord['reps'],
-          weight: setRecord['weight'] ?? 0.0,
-          recoveryBetweenSets: setRecord['recoveryBetweenSets'] ?? 60,
-          recoveryExercise: setRecord['recoveryExercise'] ?? 60,
-        );
-        await setDao.addSet(exerciseSet);
-      }
-    } finally {
-      await conn.close(); 
-    }
-
-    return Response.ok(json.encode({'status': 'success', 'message': 'Antrenament salvat!'}));
-  } catch (e) {
-    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
-  }
-}
-
-// 3. Evaluarea Efortului (F3 + F5)
-Future<Response> _logRpeHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-
-    final workoutId = data['workout_id'];
-    final rpeValue = data['rpe_value'];
-
-    if (workoutId == null || rpeValue == null) return Response.badRequest(body: 'Date incomplete');
-
-    String feedbackMessage = rpeValue >= 8 ? "Antrenament intens!" : "Efort solid!";
-
-    // --- CONEXIUNEA CU BAZA DE DATE ---
-    final conn = await Database.connect();
-    try {
-      final rpeDao = RpeLogDao(conn);
-      final rpeLog = RpeLog(workoutId: workoutId, rpeValue: rpeValue);
-      await rpeDao.addRpeLog(rpeLog);
-    } finally {
-      await conn.close();
-    }
-
-    return Response.ok(json.encode({'status': 'success', 'ai_feedback': feedbackMessage}));
-  } catch (e) {
-    return Response.internalServerError(body: 'Eroare: $e');
-  }
-}
-
-// 4. Hidratare (F7)
-Future<Response> _logHydrationHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-
-    final userId = data['user_id'];
-    final ml = data['ml'];
-
-    if (userId == null || ml == null) return Response.badRequest(body: 'Date incomplete');
-
-    // --- CONEXIUNEA CU BAZA DE DATE ---
-    final conn = await Database.connect();
-    try {
-      final hydrationDao = HydrationDao(conn);
-      final log = HydrationLog(userId: userId, waterMl: ml); 
-      await hydrationDao.addHydration(log);
-    } finally {
-      await conn.close();
-    }
-
-    return Response.ok(json.encode({'status': 'success', 'message': '${ml}ml salvati!'}));
-  } catch (e) {
-    return Response.internalServerError(body: 'Eroare: $e');
-  }
-}
-
-// 5. Nutriție (F9)
-Future<Response> _logNutritionHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-
-    final userId = data['user_id'];
-    final calories = data['calories'];
-
-    if (userId == null || calories == null) return Response.badRequest(body: 'Date incomplete');
-
-    // --- CONEXIUNEA CU BAZA DE DATE ---
-    final conn = await Database.connect();
-    try {
-      final nutritionDao = NutritionDao(conn);
-      final log = NutritionLog(userId: userId, calories: calories);
-      await nutritionDao.addNutrition(log);
-    } finally {
-      await conn.close();
-    }
-
-    return Response.ok(json.encode({'status': 'success', 'message': '${calories} kcal salvate!'}));
-  } catch (e) {
-    return Response.internalServerError(body: 'Eroare: $e');
-  }
-}
-
-// 6. Obiective (F2)
-Future<Response> _setGoalHandler(Request req) async {
-  try {
-    final payload = await req.readAsString();
-    final data = json.decode(payload);
-
-    final userId = data['user_id'];
-    final muscleGroup = data['muscle_group'];
-    final targetSets = data['target_sets'];
-
-    if (userId == null || muscleGroup == null || targetSets == null) return Response.badRequest();
-
-    // --- CONEXIUNEA CU BAZA DE DATE ---
-    final conn = await Database.connect();
-    try {
-      final goalDao = GoalDao(conn);
-      final goal = Goal(userId: userId, muscleGroup: muscleGroup, targetSets: targetSets);
-      await goalDao.addGoal(goal);
-    } finally {
-      await conn.close();
-    }
-
-    return Response.ok(json.encode({'status': 'success'}));
-  } catch (e) {
-    return Response.internalServerError(body: 'Eroare: $e');
-  }
-}
-
-// Pornirea serverului
 void main(List<String> args) async {
+  // Configurarea Routerului
+  final router = Router()
+    ..get('/', _rootHandler)
+    ..post('/api/save-workout', _saveWorkoutHandler)
+    ..get('/api/get-workout', _getWorkoutHandler)
+    ..post('/api/auth/login', _placeholderHandler)
+    ..post('/api/hydration', _placeholderHandler)
+    ..post('/api/nutrition', _placeholderHandler)
+    ..post('/api/goals', _placeholderHandler);
+
+  // Configurarea IP-ului și Portului
   final ip = InternetAddress.anyIPv4;
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
 
-  final pipeline = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
+  // Pipeline-ul cu Middleware pentru logare
+  final pipeline = Pipeline()
+      .addMiddleware(logRequests())
+      .addHandler(router.call);
+
+  // Pornirea Serverului
   final server = await serve(pipeline, ip, port);
-  print('🔥 Backend-ul OmniFit rulează pe http://${server.address.host}:${server.port}');
+  print('🔥 Serverul OmniFit este ONLINE pe http://${server.address.host}:${server.port}');
+}
+
+// --- HANDLER ROOT (Health Check) ---
+Response _rootHandler(Request req) {
+  return Response.ok(
+    json.encode({'status': 'online', 'message': 'OmniFit API rulează corect'}),
+    headers: {'Content-Type': 'application/json'},
+  );
+}
+
+// --- HANDLER PLACEHOLDER (Pentru rutele neimplementate încă) ---
+Future<Response> _placeholderHandler(Request req) async {
+  return Response.ok(
+    json.encode({'status': 'coming_soon', 'message': 'Acest endpoint va fi implementat în curând.'}),
+    headers: {'Content-Type': 'application/json'},
+  );
+}
+
+// --- HANDLER SALVARE ANTRENAMENT (POST) ---
+Future<Response> _saveWorkoutHandler(Request req) async {
+  final conn = await Database.connect(); // Deschidem conexiunea la început
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final workoutName = data['workoutName'] ?? 'Fără nume';
+    final date = data['date'] ?? DateTime.now().toIso8601String();
+    final rpe = data['rpe'] ?? 5.0;
+    final List<dynamic>? exercises = data['exercises'];
+
+    // 1. Inserăm Antrenamentul
+    var result = await conn.query(
+      'INSERT INTO Workouts (user_id, name, rpe, date_created) VALUES (?, ?, ?, ?)',
+      [userId, workoutName, rpe, DateTime.parse(date)]
+    );
+    
+    int newWorkoutId = result.insertId!; 
+
+    // 2. Inserăm Exercițiile
+    if (exercises != null) {
+      for (var ex in exercises) {
+        await conn.query(
+          'INSERT INTO Sets (workoutID, exerciseName, muscleGroup, setsCount, reps, recoveryBetweenSets, recoveryExercise) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            newWorkoutId, 
+            ex['exerciseName'], 
+            ex['muscleGroup'], 
+            ex['sets'], 
+            ex['reps'], 
+            ex['recoveryBetweenSets'], 
+            ex['recoveryExercise']
+          ]
+        );
+      }
+    }
+
+    // Returnăm succesul
+    return Response.ok(json.encode({
+      'status': 'success', 
+      'workout_id': newWorkoutId
+    }), headers: {'Content-Type': 'application/json'});
+
+  } catch (e) {
+    print("Eroare la salvare: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } finally {
+    await conn.close(); // Se execută mereu
+  }
+}
+
+// --- HANDLER EXTRAGERE ANTRENAMENTE (GET) ---
+Future<Response> _getWorkoutHandler(Request req) async {
+  final conn = await Database.connect();
+  try {
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+    List<Map<String, dynamic>> finalWorkouts = [];
+
+    // 1. Căutăm antrenamentele userului
+    var workouts = await conn.query(
+      'SELECT * FROM Workouts WHERE user_id = ? ORDER BY date_created DESC',
+      [userId]
+    );
+
+    for (var w in workouts) {
+      int workoutId = w['id'];
+      
+      // 2. Căutăm exercițiile (Sets) pentru acest antrenament
+      var sets = await conn.query(
+        'SELECT * FROM Sets WHERE workoutID = ?',
+        [workoutId]
+      );
+
+      List<Map<String, dynamic>> exercisesJson = [];
+      int workoutGlobalRest = 60; // Default
+
+      var setsList = sets.toList();
+      for (var i = 0; i < setsList.length; i++) {
+        var s = setsList[i];
+        
+        // Luăm timpul de pauză de la primul exercițiu pentru "Global Rest Time"
+        if (i == 0) {
+          workoutGlobalRest = s['recoveryBetweenSets'] ?? 60;
+        }
+
+        exercisesJson.add({
+          "exerciseName": s['exerciseName'],
+          "muscleGroup": s['muscleGroup'],
+          "sets": s['setsCount'],
+          "reps": s['reps'],
+          "recoveryBetweenSets": s['recoveryBetweenSets'],
+          "recoveryExercise": s['recoveryExercise'],
+        });
+      }
+
+      // 3. Construim obiectul pentru Frontend
+      finalWorkouts.add({
+        "id": workoutId,
+        "workoutName": w['name'],
+        "date": (w['date_created'] as DateTime).toIso8601String(),
+        "rpe": w['rpe'],
+        "globalRestTime": workoutGlobalRest,
+        "exercises": exercisesJson
+      });
+    }
+
+    return Response.ok(
+      json.encode(finalWorkouts),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } catch (e) {
+    print("Eroare la extragere: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } finally {
+    await conn.close();
+  }
 }

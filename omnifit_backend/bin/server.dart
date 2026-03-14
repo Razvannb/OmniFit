@@ -9,7 +9,10 @@ final router = Router()
   ..get('/', _rootHandler)
   ..post('/api/auth/login', _loginHandler)
   ..post('/api/workouts', _createWorkoutHandler)
-  ..post('/api/rpe', _logRpeHandler); // <-- RUTA PENTRU RPE ESTE ACUM AICI
+  ..post('/api/rpe', _logRpeHandler)
+  ..post('/api/hydration', _logHydrationHandler) // <-- F7: Hidratare
+  ..post('/api/nutrition', _logNutritionHandler) // <-- F9: Nutriție
+  ..post('/api/goals', _setGoalHandler);         // <-- F2: Obiective
 
 // Răspuns de test
 Response _rootHandler(Request req) {
@@ -45,16 +48,13 @@ Future<Response> _loginHandler(Request req) async {
   }
 }
 
-// 2. Logica ACTUALIZATĂ pentru Salvarea Antrenamentelor (F1)
+// 2. Logica pentru Salvarea Antrenamentelor (F1)
 Future<Response> _createWorkoutHandler(Request req) async {
   try {
     final payload = await req.readAsString();
     final data = json.decode(payload);
 
-    // 1. Extragem datele pentru tabela `Workouts`
-    final userId = data['user_id']; // Fix cum e în SQL
-
-    // 2. Extragem lista de seturi pentru tabela `Sets`
+    final userId = data['user_id'];
     final List<dynamic>? sets = data['sets']; 
 
     if (userId == null || sets == null || sets.isEmpty) {
@@ -64,7 +64,6 @@ Future<Response> _createWorkoutHandler(Request req) async {
       );
     }
 
-    // 3. Validăm că Frontend-ul trimite exact structura cerută de Persoana 4 pentru tabela `Sets`
     for (var setRecord in sets) {
       if (setRecord['exerciseName'] == null || 
           setRecord['setOrder'] == null || 
@@ -76,11 +75,9 @@ Future<Response> _createWorkoutHandler(Request req) async {
       }
     }
 
-    // --- PUNCT DE INTEGRARE ---
-    // Când Persoana 4 finalizează Stratul de Acces la Date (DAO), aici vei conecta codul tău cu al ei:
+    // --- PUNCT DE INTEGRARE DATABASE ---
     // int newWorkoutId = await DatabaseDAO.createWorkout(userId);
     // await DatabaseDAO.insertSets(newWorkoutId, sets);
-    // --------------------------
 
     return Response.ok(
       json.encode({
@@ -96,7 +93,7 @@ Future<Response> _createWorkoutHandler(Request req) async {
   }
 }
 
-// 3. Logica ACTUALIZATĂ pentru Evaluarea Efortului (F3 + F5 - Feedback Adaptiv)
+// 3. Logica pentru Evaluarea Efortului (F3 + F5 - Feedback Adaptiv)
 Future<Response> _logRpeHandler(Request req) async {
   try {
     final payload = await req.readAsString();
@@ -119,7 +116,6 @@ Future<Response> _logRpeHandler(Request req) async {
       );
     }
 
-    // --- LOGICA INTELIGENTĂ (F5) ---
     String feedbackMessage = "";
     if (rpeValue <= 4) {
       feedbackMessage = "A fost un antrenament ușor de încălzire! Data viitoare încearcă să crești puțin greutățile sau volumul.";
@@ -131,15 +127,14 @@ Future<Response> _logRpeHandler(Request req) async {
       feedbackMessage = "Efort MAXIM! Ai dat tot ce ai putut. Acum urmează partea cea mai importantă: odihna absolută pentru recuperare!";
     }
 
-    // --- PUNCT DE INTEGRARE Persoana 4 ---
-    // Când Persoana 4 e gata: await DatabaseDAO.insertRpe(workoutId, rpeValue);
+    // --- PUNCT DE INTEGRARE DATABASE ---
+    // await DatabaseDAO.insertRpe(workoutId, rpeValue);
 
-    // Returnăm mesajul personalizat către aplicația mobilă
     return Response.ok(
       json.encode({
         'status': 'success', 
         'message': 'RPE salvat cu succes!',
-        'ai_feedback': feedbackMessage // Frontend-ul va citi și afișa acest mesaj!
+        'ai_feedback': feedbackMessage
       }),
       headers: {'Content-Type': 'application/json'},
     );
@@ -148,6 +143,95 @@ Future<Response> _logRpeHandler(Request req) async {
     return Response.internalServerError(body: json.encode({'error': 'Eroare de procesare: $e'}));
   }
 }
+
+// 4. Logica pentru Hidratare (F7)
+Future<Response> _logHydrationHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final ml = data['ml']; 
+
+    if (userId == null || ml == null) {
+       return Response.badRequest(
+         body: json.encode({'status': 'error', 'message': 'Date incomplete.'}),
+         headers: {'Content-Type': 'application/json'}
+       );
+    }
+
+    // --- PUNCT DE INTEGRARE DATABASE ---
+    // await DatabaseDAO.insertHydration(userId, ml);
+
+    return Response.ok(
+      json.encode({'status': 'success', 'message': '${ml}ml de apa inregistrati!'}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
+  }
+}
+
+// 5. Logica pentru Nutriție (F9)
+Future<Response> _logNutritionHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final calories = data['calories'];
+
+    if (userId == null || calories == null) {
+       return Response.badRequest(
+         body: json.encode({'status': 'error', 'message': 'Date incomplete.'}),
+         headers: {'Content-Type': 'application/json'}
+       );
+    }
+
+    // --- PUNCT DE INTEGRARE DATABASE ---
+    // await DatabaseDAO.insertNutrition(userId, calories);
+
+    return Response.ok(
+      json.encode({'status': 'success', 'message': '${calories} kcal inregistrate!'}),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
+  }
+}
+
+// 6. Logica pentru Obiective (F2)
+Future<Response> _setGoalHandler(Request req) async {
+  try {
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'];
+    final muscleGroup = data['muscle_group'];
+    final targetSets = data['target_sets'];
+
+    if (userId == null || muscleGroup == null || targetSets == null) {
+       return Response.badRequest(
+         body: json.encode({'status': 'error', 'message': 'Date incomplete.'}),
+         headers: {'Content-Type': 'application/json'}
+       );
+    }
+
+    // --- PUNCT DE INTEGRARE DATABASE ---
+    // await DatabaseDAO.insertGoal(userId, muscleGroup, targetSets);
+
+    return Response.ok(
+      json.encode({
+        'status': 'success', 
+        'message': 'Obiectivul de $targetSets seturi pentru $muscleGroup a fost salvat!'
+      }),
+      headers: {'Content-Type': 'application/json'}
+    );
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': 'Eroare: $e'}));
+  }
+}
+
 // Pornirea serverului
 void main(List<String> args) async {
   final ip = InternetAddress.anyIPv4;

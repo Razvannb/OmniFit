@@ -52,7 +52,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Future<void> fetchWorkoutData() async {
     final url = Uri.parse(
-      'http://192.168.171.172:8080/api/get-workout?user_id=1',
+      'http://0.0.0.0:8080/api/get-workout?user_id=1',
     );
 
     try {

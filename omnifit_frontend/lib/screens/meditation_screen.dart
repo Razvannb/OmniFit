@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Base URL for API requests (Localhost pointing to backend)
+final String baseUrl = 'http://127.0.0.1:8080';
 
 //  DATA MODELS
 // Model representing a single meditation session
@@ -16,8 +21,11 @@ class MeditationSession {
 
 //  MAIN SCREEN
 class MeditationScreen extends StatefulWidget {
+  final int userId;
+
   // Constructor
-  const MeditationScreen({super.key});
+  // Added userId with a default value of 1 so it doesn't break navigation from Dashboard
+  const MeditationScreen({super.key, this.userId = 1});
 
   @override
   State<MeditationScreen> createState() => _MeditationScreenState();
@@ -29,6 +37,12 @@ class _MeditationScreenState extends State<MeditationScreen> {
   final List<MeditationSession> _todaySessions =
       []; // List to store all sessions logged today
 
+  @override
+  void initState() {
+    super.initState();
+    fetchMeditationData(); // Load data from backend when screen initializes
+  }
+
   // Calculate total minutes meditated today by summing up the duration of all sessions
   int get _totalMinutesToday =>
       _todaySessions.fold(0, (sum, session) => sum + session.minutes);
@@ -36,20 +50,98 @@ class _MeditationScreenState extends State<MeditationScreen> {
   // Calculate the remaining minutes needed to reach the daily goal
   int get _minutesRemaining => _dailyGoalMinutes - _totalMinutesToday;
 
-  // Method to log a new meditation session and update the UI
-  void _addMeditationSession(int minutes) {
-    setState(() {
-      final now = DateTime.now(); // Get current timestamp
-      final timeString = DateFormat(
-        'HH:mm',
-      ).format(now); // Format timestamp to HH:mm
-
-      // Add the new session to the beginning of the list so it appears at the top
-      _todaySessions.insert(
-        0,
-        MeditationSession(minutes: minutes, time: timeString),
+  // Fetch data from backend
+  Future<void> fetchMeditationData() async {
+    try {
+      // 1. Fetch Meditation Goal
+      final goalRes = await http.get(
+        Uri.parse('$baseUrl/api/meditation-goal?user_id=${widget.userId}'),
       );
-    });
+      if (goalRes.statusCode == 200) {
+        final goalData = json.decode(goalRes.body);
+        if (mounted) {
+          setState(() {
+            _dailyGoalMinutes = goalData['daily_minutes_goal'] ?? 30;
+          });
+        }
+      }
+
+      // 2. Fetch Meditation Logs for Today
+      final logRes = await http.get(
+        Uri.parse('$baseUrl/api/meditation?user_id=${widget.userId}'),
+      );
+      if (logRes.statusCode == 200) {
+        List<dynamic> data = json.decode(logRes.body);
+
+        List<MeditationSession> loadedSessions = [];
+        final now = DateTime.now();
+
+        for (var item in data) {
+          DateTime logDate = DateTime.parse(item['date']).toLocal();
+
+          // Check if the log belongs to today
+          if (logDate.year == now.year &&
+              logDate.month == now.month &&
+              logDate.day == now.day) {
+            String timeString = DateFormat('HH:mm').format(logDate);
+            int minutes = item['minutes'] as int;
+
+            loadedSessions.add(
+              MeditationSession(minutes: minutes, time: timeString),
+            );
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _todaySessions.clear();
+            _todaySessions.addAll(loadedSessions);
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching meditation data: $e");
+    }
+  }
+
+  // Method to log a new meditation session and update the UI & Backend
+  Future<void> _addMeditationSession(int minutes) async {
+    // Determine the actual amount to add (avoiding total dropping below 0 locally)
+    int actualMinutesToAdd = minutes;
+    if (_totalMinutesToday + minutes < 0) {
+      actualMinutesToAdd = -_totalMinutesToday;
+    }
+
+    if (actualMinutesToAdd != 0) {
+      // 1. Update UI Optimistically
+      setState(() {
+        final now = DateTime.now(); // Get current timestamp
+        final timeString = DateFormat(
+          'HH:mm',
+        ).format(now); // Format timestamp to HH:mm
+
+        // Add the new session to the beginning of the list so it appears at the top
+        _todaySessions.insert(
+          0,
+          MeditationSession(minutes: actualMinutesToAdd, time: timeString),
+        );
+      });
+
+      // 2. POST to Backend
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/api/meditation'),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "user_id": widget.userId,
+            "minutes": actualMinutesToAdd,
+            "date": DateTime.now().toIso8601String(),
+          }),
+        );
+      } catch (e) {
+        print("Error saving meditation log: $e");
+      }
+    }
   }
 
   // Show a dialog popup allowing the user to change their daily meditation goal
@@ -86,15 +178,32 @@ class _MeditationScreenState extends State<MeditationScreen> {
             ),
             // Save button
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final newGoal = int.tryParse(goalController.text);
+
+                // Pop the dialog immediately for better UX
+                Navigator.pop(context);
+
                 // Validate input: update goal only if it's a positive number
                 if (newGoal != null && newGoal > 0) {
                   setState(() {
                     _dailyGoalMinutes = newGoal;
                   });
+
+                  // POST Goal to Backend
+                  try {
+                    await http.post(
+                      Uri.parse('$baseUrl/api/meditation-goal'),
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        "user_id": widget.userId,
+                        "daily_minutes_goal": newGoal,
+                      }),
+                    );
+                  } catch (e) {
+                    print("Error saving meditation goal: $e");
+                  }
                 }
-                Navigator.pop(context); // Close the dialog
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal, // Calming teal color
@@ -158,7 +267,9 @@ class _MeditationScreenState extends State<MeditationScreen> {
   @override
   Widget build(BuildContext context) {
     // Calculate the progress ratio (between 0.0 and 1.0) for the circular indicator
-    double progress = _totalMinutesToday / _dailyGoalMinutes;
+    double progress = _dailyGoalMinutes == 0
+        ? 0.0
+        : _totalMinutesToday / _dailyGoalMinutes;
     if (progress < 0.0) progress = 0.0;
     if (progress > 1.0) progress = 1.0; // Cap visual progress at 100%
 
@@ -172,7 +283,7 @@ class _MeditationScreenState extends State<MeditationScreen> {
           'Mindfulness',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color.fromARGB(255, 255, 255, 255), 
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         foregroundColor: const Color.fromARGB(255, 0, 0, 0),
         elevation: 0, // Flat app bar
       ),

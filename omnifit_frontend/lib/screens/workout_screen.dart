@@ -761,19 +761,35 @@ class AddExerciseScreen extends StatefulWidget {
 
 class _AddExerciseScreenState extends State<AddExerciseScreen> {
   final _exerciseNameController = TextEditingController();
-  final _muscleGroupController = TextEditingController();
   final _restBetweenExerciseController = TextEditingController();
-
   final List<TextEditingController> _repsControllers = [];
+
+  // --- MODIFICAREA 1: Adăugăm grupele musculare ---
+  final List<String> _muscleGroups = [
+    'Chest',
+    'Back',
+    'Legs',
+    'Shoulders',
+    'Biceps',
+    'Triceps',
+    'Core',
+  ];
+  String _selectedMuscleGroup = 'Chest'; // Valoarea default
 
   @override
   void initState() {
     super.initState();
     if (widget.exerciseToEdit != null) {
       _exerciseNameController.text = widget.exerciseToEdit!.name;
-      _muscleGroupController.text = widget.exerciseToEdit!.muscleGroup;
       _restBetweenExerciseController.text =
           widget.exerciseToEdit!.restBetweenExercise;
+
+      // --- MODIFICAREA 2: Setăm dropdown-ul pe grupa salvată ---
+      if (_muscleGroups.contains(widget.exerciseToEdit!.muscleGroup)) {
+        _selectedMuscleGroup = widget.exerciseToEdit!.muscleGroup;
+      } else {
+        _selectedMuscleGroup = 'Chest'; // Fallback dacă cumva e un text vechi
+      }
 
       for (var rep in widget.exerciseToEdit!.reps) {
         _repsControllers.add(TextEditingController(text: rep));
@@ -786,8 +802,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
   @override
   void dispose() {
     _exerciseNameController.dispose();
-    _muscleGroupController.dispose();
     _restBetweenExerciseController.dispose();
+    // AM ȘTERS LINIA CU _muscleGroupController.dispose()
     for (var controller in _repsControllers) {
       controller.dispose();
     }
@@ -817,7 +833,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
 
     final newExercise = ExerciseItem(
       name: _exerciseNameController.text,
-      muscleGroup: _muscleGroupController.text,
+      muscleGroup:
+          _selectedMuscleGroup, // <--- MODIFICAREA 3: Luăm valoarea selectată
       reps: _repsControllers
           .map((c) => c.text)
           .where((text) => text.isNotEmpty)
@@ -856,13 +873,29 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _muscleGroupController,
+
+            DropdownButtonFormField<String>(
+              value: _selectedMuscleGroup,
               decoration: const InputDecoration(
-                labelText: 'Muscle Group (e.g., Legs)',
+                labelText: 'Muscle Group',
                 border: OutlineInputBorder(),
               ),
+              items: _muscleGroups.map((String group) {
+                return DropdownMenuItem<String>(
+                  value: group,
+                  child: Text(group),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedMuscleGroup = newValue;
+                  });
+                }
+              },
             ),
+
+            // ----------------------------------------------
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 10),

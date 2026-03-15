@@ -13,7 +13,6 @@ void main(List<String> args) async {
     ..get('/api/get-workout', _getWorkoutHandler)
     ..delete('/api/delete-workout', _deleteWorkoutHandler)
     ..post('/api/auth/login', _placeholderHandler)
-    ..post('/api/hydration', _placeholderHandler)
     ..post('/api/goals', _saveGoalHandler)
     ..get('/api/goals', _getGoalsHandler)
     ..get('/api/dashboard', _getDashboardHandler)

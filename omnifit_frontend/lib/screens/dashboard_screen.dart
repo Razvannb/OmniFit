@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
 import 'hydration_screen.dart';
+import 'meditation_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final VoidCallback onAddWorkout;
@@ -195,7 +196,12 @@ class DashboardScreen extends StatelessWidget {
           Icons.self_improvement_outlined,
           'Start\nMeditation',
           Colors.teal,
-          () {},
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MeditationScreen()),
+            );
+          },
         ),
       ],
     );

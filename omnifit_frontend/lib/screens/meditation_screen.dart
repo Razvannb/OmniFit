@@ -165,14 +165,14 @@ class _MeditationScreenState extends State<MeditationScreen> {
     bool isExceeded = _minutesRemaining < 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // Light greyish-blue background
+      backgroundColor: const Color(0xFFF8F9FB), // Light greyish-blue background
       appBar: AppBar(
         title: const Text(
           'Mindfulness',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.teal, // Calming primary color
-        foregroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255), 
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
         elevation: 0, // Flat app bar
       ),
       body: SingleChildScrollView(

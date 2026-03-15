@@ -2,30 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+// Base URL for the backend API
 final String baseUrl = 'http://127.0.0.1:8080'; //127.0.0.1
 
+//  DATA MODELS
+
+// Model representing a single exercise within a workout
 class ExerciseItem {
-  final String id;
-  String name;
-  String muscleGroup;
-  List<String> reps;
-  String restBetweenExercise;
+  final String id; // Unique identifier for the exercise
+  String name; // Name of the exercise (e.g., Squats)
+  String muscleGroup; // Targeted muscle group
+  List<String> reps; // List storing the number of reps for each set
+  String
+  restBetweenExercise; // Rest time after completing this specific exercise
 
   ExerciseItem({
     required this.name,
     required this.muscleGroup,
     required this.reps,
     required this.restBetweenExercise,
-  }) : id = UniqueKey().toString();
+  }) : id = UniqueKey().toString(); // Automatically generate a unique key
 }
 
+// Model representing a complete workout session
 class WorkoutItem {
-  String? id;
-  String name;
-  DateTime date;
-  List<ExerciseItem> exercises;
-  String globalRestTime;
-  double rpe;
+  String? id; // Database ID (nullable before saving)
+  String name; // Name of the workout (e.g., Upper Body)
+  DateTime date; // Date when the workout is performed
+  List<ExerciseItem> exercises; // List of exercises in this workout
+  String globalRestTime; // Default rest time between sets across all exercises
+  double rpe; // Rate of Perceived Exertion (1-10 difficulty scale)
 
   WorkoutItem({
     this.id,
@@ -35,10 +41,11 @@ class WorkoutItem {
     required this.globalRestTime,
     required this.rpe,
   }) {
-    id ??= UniqueKey().toString();
+    id ??= UniqueKey().toString(); // Assign a unique key if no ID is provided
   }
 }
 
+//  SCREEN 1: MAIN WORKOUT LIST
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({super.key});
 
@@ -47,14 +54,16 @@ class WorkoutScreen extends StatefulWidget {
 }
 
 class _WorkoutScreenState extends State<WorkoutScreen> {
+  // List holding all saved workouts fetched from the server
   final List<WorkoutItem> _savedWorkouts = [];
 
   @override
   void initState() {
     super.initState();
-    fetchWorkoutData();
+    fetchWorkoutData(); // Fetch workouts when the screen loads
   }
 
+  // Method to retrieve workout data from the backend API
   Future<void> fetchWorkoutData() async {
     final url = Uri.parse('$baseUrl/api/get-workout?user_id=1');
 
@@ -64,18 +73,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
 
+        // Map the JSON response into a list of WorkoutItem objects
         List<WorkoutItem> fetchedWorkouts = data.map<WorkoutItem>((item) {
           var exercisesJson = item['exercises'] as List? ?? [];
+
+          // Map the nested JSON exercises into ExerciseItem objects
           List<ExerciseItem> parsedExercises = exercisesJson.map((ex) {
             return ExerciseItem(
               name: ex['exerciseName'] ?? '',
               muscleGroup: ex['muscleGroup'] ?? '',
               reps: (ex['reps'] ?? '').split(
                 ',',
-              ), // we make the string of reps back into a list by splitting on commas
+              ), // Convert the comma-separated string back into a List of reps
               restBetweenExercise: ex['recoveryExercise']?.toString() ?? '30',
             );
           }).toList();
+
           return WorkoutItem(
             id: item['id'].toString(),
             name: item['workoutName'] ?? 'Antrenament Necunoscut',
@@ -85,10 +98,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             globalRestTime: item['globalRestTime']?.toString() ?? '60',
             rpe: (item['rpe'] ?? 5.0).toDouble(),
             exercises:
-                parsedExercises, // we assign the parsed exercises list to the workout item
+                parsedExercises, // Assign the parsed exercises list to the workout item
           );
         }).toList();
 
+        // Update the UI with the fetched workouts
         setState(() {
           _savedWorkouts.clear();
           _savedWorkouts.addAll(fetchedWorkouts);
@@ -103,27 +117,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     }
   }
 
+  // Navigate to the form screen to create a new workout or edit an existing one
   void _navigateToLogWorkout({int? index}) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LogWorkoutScreen(
-          workoutToEdit: index != null ? _savedWorkouts[index] : null,
+          workoutToEdit: index != null
+              ? _savedWorkouts[index]
+              : null, // Pass data if editing
         ),
       ),
     );
 
+    // If a valid WorkoutItem is returned from the form, update the list
     if (result != null && result is WorkoutItem) {
       setState(() {
         if (index != null) {
-          _savedWorkouts[index] = result;
+          _savedWorkouts[index] = result; // Update existing
         } else {
-          _savedWorkouts.insert(0, result);
+          _savedWorkouts.insert(0, result); // Add new at the top
         }
       });
     }
   }
 
+  // Helper method to format dates nicely (dd.mm.yyyy)
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
@@ -143,6 +162,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            //  ADD WORKOUT BUTTON
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -164,8 +184,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
             const SizedBox(height: 20),
 
+            //  WORKOUTS LIST
             Expanded(
               child: _savedWorkouts.isEmpty
+                  // Display placeholder message if the list is empty
                   ? const Center(
                       child: Text(
                         'No workouts yet.\nTap "Add Workout" to start!',
@@ -173,6 +195,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                         style: TextStyle(color: Colors.grey, fontSize: 18),
                       ),
                     )
+                  // Display the list of workout cards
                   : ListView.builder(
                       itemCount: _savedWorkouts.length,
                       itemBuilder: (context, index) {
@@ -188,6 +211,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Header of the card (Title + Action Icons)
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -201,6 +225,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                     ),
                                     Row(
                                       children: [
+                                        // Edit Button
                                         IconButton(
                                           icon: const Icon(
                                             Icons.edit,
@@ -211,6 +236,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                                 index: index,
                                               ),
                                         ),
+                                        // Delete Button
                                         IconButton(
                                           icon: const Icon(
                                             Icons.delete,
@@ -219,12 +245,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                           onPressed: () async {
                                             final workoutId = workout.id;
 
-                                            // we delete the workout from the UI
+                                            // Delete the workout from the UI immediately
                                             setState(() {
                                               _savedWorkouts.removeAt(index);
                                             });
 
-                                            // we send a delete request to the server to remove the workout from the database, but only if the workout has a valid ID (not a temporary one)
+                                            // Send a delete request to the server to remove it from the database (only if it has a valid ID)
                                             if (workoutId != null &&
                                                 !workoutId.contains('#')) {
                                               try {
@@ -243,6 +269,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                     ),
                                   ],
                                 ),
+                                // Date details
                                 Row(
                                   children: [
                                     const Icon(
@@ -260,6 +287,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 15),
+                                // Footer details (Number of exercises & RPE)
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -295,8 +323,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 }
 
+//  SCREEN 2: LOG/EDIT A SPECIFIC WORKOUT
 class LogWorkoutScreen extends StatefulWidget {
-  final WorkoutItem? workoutToEdit;
+  final WorkoutItem?
+  workoutToEdit; // Passed if we are editing an existing workout
 
   const LogWorkoutScreen({super.key, this.workoutToEdit});
 
@@ -305,13 +335,15 @@ class LogWorkoutScreen extends StatefulWidget {
 }
 
 class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
+  // Input fields and states for the workout being logged
   final TextEditingController _workoutNameController = TextEditingController();
   List<ExerciseItem> _exercises = [];
-  String _globalRestTime = '60';
+  String _globalRestTime = '60'; // Default rest time between sets
 
   @override
   void initState() {
     super.initState();
+    // Pre-fill data if we are editing an existing workout
     if (widget.workoutToEdit != null) {
       _workoutNameController.text = widget.workoutToEdit!.name;
       _globalRestTime = widget.workoutToEdit!.globalRestTime;
@@ -325,6 +357,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     super.dispose();
   }
 
+  // Opens a dialog to change the global rest time between sets
   void _editGlobalRestTime() {
     TextEditingController editController = TextEditingController(
       text: _globalRestTime,
@@ -343,6 +376,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
             ),
           ),
           actions: [
+            // Delete / Clear button
             TextButton(
               onPressed: () {
                 setState(() {
@@ -353,6 +387,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Delete'),
             ),
+            // Save button
             ElevatedButton(
               onPressed: () {
                 setState(() {
@@ -372,6 +407,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     );
   }
 
+  // Navigates to the Add/Edit Exercise screen
   void _navigateToAddExercise({int? index}) async {
     final result = await Navigator.push(
       context,
@@ -382,6 +418,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
       ),
     );
 
+    // Updates the exercise list when returning from the form
     if (result != null && result is ExerciseItem) {
       setState(() {
         if (index != null) {
@@ -393,22 +430,25 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     }
   }
 
+  // Sends the finalized workout data to the backend via POST request
   Future<void> sendWorkoutData(WorkoutItem workout) async {
     final url = Uri.parse('$baseUrl/api/save-workout');
 
+    // Format the exercises list into JSON structure expected by the API
     List<Map<String, dynamic>> exercisesJson = workout.exercises
         .map<Map<String, dynamic>>((ex) {
           return {
             "exerciseName": ex.name,
             "muscleGroup": ex.muscleGroup,
             "sets": ex.reps.length,
-            "reps": ex.reps.join(","),
+            "reps": ex.reps.join(","), // Compress reps array to a single string
             "recoveryBetweenSets": int.tryParse(workout.globalRestTime) ?? 60,
             "recoveryExercise": int.tryParse(ex.restBetweenExercise) ?? 30,
           };
         })
         .toList();
 
+    // Prepare the final payload
     Map<String, dynamic> workoutData = {
       "id": workout.id,
       "user_id": 1,
@@ -436,7 +476,9 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     }
   }
 
+  // Shows the RPE (Rate of Perceived Exertion) slider dialog to finalize the workout
   void _showEffortEvaluationDialog() {
+    // Validation: Require a workout name before finishing
     if (_workoutNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a Workout Name!')),
@@ -449,11 +491,13 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        // StatefulBuilder allows the dialog to update its own state (slider moves)
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             String difficultyTitle = '';
             String difficultyDescription = '';
 
+            // Update description text and colors dynamically based on slider value
             if (currentSliderValue <= 3) {
               difficultyTitle = 'Easy';
               difficultyDescription =
@@ -479,6 +523,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Dynamic Difficulty Title
                   Text(
                     difficultyTitle,
                     style: TextStyle(
@@ -492,12 +537,14 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // Dynamic Description
                   Text(
                     difficultyDescription,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
+                  // The RPE Slider (1 to 10)
                   Slider(
                     value: currentSliderValue,
                     min: 1,
@@ -525,8 +572,10 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
+                // Finalize and Save Button
                 ElevatedButton(
                   onPressed: () {
+                    // Create the final WorkoutItem object
                     final finalWorkout = WorkoutItem(
                       id: widget.workoutToEdit?.id,
                       name: _workoutNameController.text,
@@ -536,8 +585,10 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                       rpe: currentSliderValue,
                     );
 
+                    // Send to backend
                     sendWorkoutData(finalWorkout);
 
+                    // Pop dialog, then pop screen, returning the final data to the list
                     Navigator.of(context).pop();
                     Navigator.of(context).pop(finalWorkout);
 
@@ -579,6 +630,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            //  WORKOUT NAME INPUT
             TextField(
               controller: _workoutNameController,
               decoration: const InputDecoration(
@@ -591,6 +643,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
             ),
             const SizedBox(height: 15),
 
+            //  ADD EXERCISE BUTTON
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -609,6 +662,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
             ),
             const SizedBox(height: 15),
 
+            //  GLOBAL REST TIME INDICATOR/BUTTON
             if (_globalRestTime.isNotEmpty && _globalRestTime != '0')
               InkWell(
                 onTap: _editGlobalRestTime,
@@ -650,7 +704,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
               TextButton.icon(
                 onPressed: () {
                   setState(() {
-                    _globalRestTime = '60';
+                    _globalRestTime = '60'; // Default
                   });
                   _editGlobalRestTime();
                 },
@@ -663,6 +717,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
 
             const SizedBox(height: 15),
 
+            //  LIST OF ADDED EXERCISES
             Expanded(
               child: _exercises.isEmpty
                   ? const Center(
@@ -695,6 +750,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                                 ),
                               ],
                             ),
+                            // Trailing Edit & Delete Buttons
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -725,6 +781,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                     ),
             ),
 
+            //  SAVE WORKOUT BUTTON (Only visible if there are exercises)
             if (_exercises.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 10.0),
@@ -732,7 +789,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _showEffortEvaluationDialog,
+                    onPressed: _showEffortEvaluationDialog, // Proceeds to RPE
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -754,6 +811,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   }
 }
 
+//  SCREEN 3: ADD/EDIT A SINGLE EXERCISE
 class AddExerciseScreen extends StatefulWidget {
   final ExerciseItem? exerciseToEdit;
 
@@ -764,11 +822,13 @@ class AddExerciseScreen extends StatefulWidget {
 }
 
 class _AddExerciseScreenState extends State<AddExerciseScreen> {
+  // Input controllers for the exercise details
   final _exerciseNameController = TextEditingController();
   final _restBetweenExerciseController = TextEditingController();
-  final List<TextEditingController> _repsControllers = [];
+  final List<TextEditingController> _repsControllers =
+      []; // One controller per set
 
-  // --- MODIFICAREA 1: Adăugăm grupele musculare ---
+  //  MODIFICATION 1: Available muscle groups for the dropdown
   final List<String> _muscleGroups = [
     'Chest',
     'Back',
@@ -778,27 +838,31 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
     'Triceps',
     'Core',
   ];
-  String _selectedMuscleGroup = 'Chest'; // Valoarea default
+  String _selectedMuscleGroup = 'Chest'; // Default selection
 
   @override
   void initState() {
     super.initState();
+    // Pre-fill data if we are editing an existing exercise
     if (widget.exerciseToEdit != null) {
       _exerciseNameController.text = widget.exerciseToEdit!.name;
       _restBetweenExerciseController.text =
           widget.exerciseToEdit!.restBetweenExercise;
 
-      // --- MODIFICAREA 2: Setăm dropdown-ul pe grupa salvată ---
+      //  MODIFICATION 2: Set the dropdown to the previously saved muscle group
       if (_muscleGroups.contains(widget.exerciseToEdit!.muscleGroup)) {
         _selectedMuscleGroup = widget.exerciseToEdit!.muscleGroup;
       } else {
-        _selectedMuscleGroup = 'Chest'; // Fallback dacă cumva e un text vechi
+        _selectedMuscleGroup =
+            'Chest'; // Fallback just in case of old/invalid text
       }
 
+      // Populate text controllers for the existing sets
       for (var rep in widget.exerciseToEdit!.reps) {
         _repsControllers.add(TextEditingController(text: rep));
       }
     } else {
+      // If adding a new exercise, start with one empty set by default
       _repsControllers.add(TextEditingController());
     }
   }
@@ -807,19 +871,21 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
   void dispose() {
     _exerciseNameController.dispose();
     _restBetweenExerciseController.dispose();
-    // AM ȘTERS LINIA CU _muscleGroupController.dispose()
+    // Disposal of all dynamic set controllers
     for (var controller in _repsControllers) {
       controller.dispose();
     }
     super.dispose();
   }
 
+  // Method to add a new empty set field to the list
   void _addSet() {
     setState(() {
       _repsControllers.add(TextEditingController());
     });
   }
 
+  // Method to remove a specific set from the list
   void _removeSet(int index) {
     setState(() {
       _repsControllers[index].dispose();
@@ -827,6 +893,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
     });
   }
 
+  // Finalizes the exercise creation and returns to the previous screen
   void _saveExercise() {
     if (_exerciseNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -838,7 +905,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
     final newExercise = ExerciseItem(
       name: _exerciseNameController.text,
       muscleGroup:
-          _selectedMuscleGroup, // <--- MODIFICAREA 3: Luăm valoarea selectată
+          _selectedMuscleGroup, //  MODIFICATION 3: Passing the selected dropdown value
+      // Extract texts from all set controllers and filter out empty ones
       reps: _repsControllers
           .map((c) => c.text)
           .where((text) => text.isNotEmpty)
@@ -846,7 +914,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
       restBetweenExercise: _restBetweenExerciseController.text,
     );
 
-    Navigator.pop(context, newExercise);
+    Navigator.pop(
+      context,
+      newExercise,
+    ); // Return the object back to the Workout Form
   }
 
   @override
@@ -866,6 +937,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            //  EXERCISE DETAILS SECTION
             const Text(
               'Exercise Details',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -880,6 +952,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
             ),
             const SizedBox(height: 10),
 
+            // Dropdown menu to select the Muscle Group
             DropdownButtonFormField<String>(
               initialValue: _selectedMuscleGroup,
               decoration: const InputDecoration(
@@ -901,10 +974,11 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
               },
             ),
 
-            // ----------------------------------------------
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 10),
+
+            //  SETS & REPS SECTION
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -920,8 +994,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
               ],
             ),
             const SizedBox(height: 10),
+            // Dynamically renders the text fields for each set
             ListView.builder(
-              shrinkWrap: true,
+              shrinkWrap:
+                  true, // Prevents scroll conflict with the parent ScrollView
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _repsControllers.length,
               itemBuilder: (context, index) {
@@ -929,6 +1005,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
                   padding: const EdgeInsets.only(bottom: 10.0),
                   child: Row(
                     children: [
+                      // Set label (e.g., "Set 1:")
                       Text(
                         'Set ${index + 1}:',
                         style: const TextStyle(
@@ -937,6 +1014,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
                         ),
                       ),
                       const SizedBox(width: 15),
+                      // Reps input field
                       Expanded(
                         child: TextField(
                           controller: _repsControllers[index],
@@ -944,10 +1022,12 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Reps',
                             border: OutlineInputBorder(),
-                            isDense: true,
+                            isDense:
+                                true, // Makes the field slightly more compact
                           ),
                         ),
                       ),
+                      // Delete Set button
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _removeSet(index),
@@ -960,6 +1040,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
             const SizedBox(height: 10),
             const Divider(),
             const SizedBox(height: 10),
+
+            //  REST TIME SECTION
             const Text(
               'Rest Time (seconds)',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -974,6 +1056,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
               ),
             ),
             const SizedBox(height: 30),
+
+            //  FINALIZE SAVE BUTTON
             SizedBox(
               width: double.infinity,
               height: 50,

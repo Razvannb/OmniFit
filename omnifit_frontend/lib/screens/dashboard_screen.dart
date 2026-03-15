@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'profile_screen.dart';
 import 'hydration_screen.dart';
 import 'meditation_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+final String baseUrl = 'http://127.0.0.1:8080';
+
+class DashboardScreen extends StatefulWidget {
   final VoidCallback onAddWorkout;
   final VoidCallback onViewGoals;
 
@@ -12,6 +16,38 @@ class DashboardScreen extends StatelessWidget {
     required this.onAddWorkout,
     required this.onViewGoals,
   });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String _aiRecommendation = "Loading your personalized recommendation...";
+
+  @override
+  void initState() {
+    super.initState();
+    fetchRecommendation();
+  }
+
+  Future<void> fetchRecommendation() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/dashboard?user_id=1'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _aiRecommendation = data['recommendation'];
+        });
+      }
+    } catch (e) {
+      print("Error AI recommendation: $e");
+      setState(() {
+        _aiRecommendation = "We couldn't load the recommendation.";
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +96,7 @@ class DashboardScreen extends StatelessWidget {
               child: _buildQuickActionsGrid(context),
             ),
             const SizedBox(height: 32),
-            _buildAIMessage(),
+            _buildAIMessage(), // Aici va apărea mesajul nostru
             const SizedBox(height: 32),
           ],
         ),
@@ -173,13 +209,13 @@ class DashboardScreen extends StatelessWidget {
           Icons.add_box,
           'Add\nWorkout',
           Colors.blue,
-          onAddWorkout,
+          widget.onAddWorkout,
         ),
         _buildSquareActionCard(
           Icons.insert_chart_outlined,
           'View\nGoals',
           Colors.purple,
-          onViewGoals,
+          widget.onViewGoals,
         ),
         _buildSquareActionCard(
           Icons.water_drop_outlined,
@@ -263,15 +299,15 @@ class DashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.blueAccent.withOpacity(0.1)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 24),
-          SizedBox(width: 12),
+          const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 24),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'AI Insight',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -279,10 +315,10 @@ class DashboardScreen extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'You have 4 sets left for Chest to reach your weekly goal.',
-                  style: TextStyle(color: Colors.black87, fontSize: 13),
+                  _aiRecommendation,
+                  style: const TextStyle(color: Colors.black87, fontSize: 13),
                 ),
               ],
             ),

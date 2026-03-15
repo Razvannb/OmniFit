@@ -252,7 +252,6 @@ Future<Response> _getGoalsHandler(Request req) async {
 
       int currentSets = 0;
       if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
-        // AICI ERA PROBLEMA: SUM-ul vine cu zecimale de la MySQL (ex: 4.0)
         currentSets = double.parse(
           progressQuery.first['total'].toString(),
         ).toInt();
@@ -325,13 +324,13 @@ Future<Response> _getDashboardHandler(Request req) async {
     String recommendation = "";
     if (avgRpe >= 8.0) {
       recommendation =
-          "Atenție! Ai avut antrenamente foarte intense recent (RPE mediu: ${avgRpe.toStringAsFixed(1)}/10). Îți recomandăm o zi de recuperare activă, stretching sau yoga azi!";
+          "Attention! You have had very intense workouts recently (average RPE: ${avgRpe.toStringAsFixed(1)}/10). We recommend a day of active recovery, stretching, or yoga today!";
     } else if (laggingMuscle.isNotEmpty) {
       recommendation =
-          "Te simți bine (RPE: ${avgRpe.toStringAsFixed(1)}/10). Astăzi ar fi ideal să faci un antrenament pentru '$laggingMuscle' pentru a-ți atinge obiectivul săptămânal de seturi!";
+          "You feel good (RPE: ${avgRpe.toStringAsFixed(1)}/10). Today would be ideal for doing a workout for '$laggingMuscle' to reach your weekly set goal!";
     } else {
       recommendation =
-          "Ești un campion! RPE-ul e optim și ai atins deja toate obiectivele săptămânale de volum. Poți face orice antrenament dorești azi!";
+          "You are a champion! The RPE is optimal and you have already reached all your weekly set goals. You can do any workout you want today!";
     }
 
     return Response.ok(
@@ -339,7 +338,7 @@ Future<Response> _getDashboardHandler(Request req) async {
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
-    print("Eroare la Dashboard: $e");
+    print("Error at Dashboard: $e");
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
     );
@@ -352,7 +351,7 @@ Future<Response> _deleteWorkoutHandler(Request req) async {
     final workoutId = req.url.queryParameters['id'];
     if (workoutId == null) {
       return Response.badRequest(
-        body: json.encode({'error': 'Lipsește ID-ul antrenamentului.'}),
+        body: json.encode({'error': 'Missing workout ID.'}),
         headers: {'Content-Type': 'application/json'},
       );
     }
@@ -366,12 +365,12 @@ Future<Response> _deleteWorkoutHandler(Request req) async {
     return Response.ok(
       json.encode({
         'status': 'deleted',
-        'message': 'Antrenamentul a fost șters!',
+        'message': 'Workout deleted successfully!',
       }),
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
-    print("Eroare la ștergere: $e");
+    print("Error at deletion: $e");
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
       headers: {'Content-Type': 'application/json'},

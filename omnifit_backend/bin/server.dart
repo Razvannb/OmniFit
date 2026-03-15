@@ -6,102 +6,126 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:omnifit_backend/db/database.dart';
 
 void main(List<String> args) async {
-  // Router Configuration
+  // --- Router Configuration ---
+  // Maps HTTP requests (GET, POST, DELETE) to their specific handler functions.
+  // Think of this as the "switchboard" of your backend.
   final router = Router()
     ..get('/', _rootHandler)
+    // Workout Endpoints
     ..post('/api/save-workout', _saveWorkoutHandler)
     ..get('/api/get-workout', _getWorkoutHandler)
     ..delete('/api/delete-workout', _deleteWorkoutHandler)
+    // Auth Endpoint
     ..post('/api/auth/login', _placeholderHandler)
+    // Fitness Goals Endpoints (Sets per muscle group)
     ..post('/api/goals', _saveGoalHandler)
     ..get('/api/goals', _getGoalsHandler)
+    // Dashboard / Recommendation Engine Endpoint
     ..get('/api/dashboard', _getDashboardHandler)
+    // Nutrition Endpoints
     ..post('/api/nutrition', _saveNutritionHandler)
     ..get('/api/nutrition', _getNutritionHandler)
     ..post('/api/nutrition-goal', _saveNutritionGoalHandler)
     ..get('/api/nutrition-goal', _getNutritionGoalHandler)
+    // Hydration Endpoints
     ..post('/api/hydration', _saveHydrationHandler)
     ..get('/api/hydration', _getHydrationHandler)
     ..post('/api/hydration-goal', _saveHydrationGoalHandler)
     ..get('/api/hydration-goal', _getHydrationGoalHandler)
+    // Meditation Endpoints
     ..post('/api/meditation', _saveMeditationHandler)
     ..get('/api/meditation', _getMeditationHandler)
     ..post('/api/meditation-goal', _saveMeditationGoalHandler)
     ..get('/api/meditation-goal', _getMeditationGoalHandler);
 
-  // IP and port configuration
+  // --- Server Configuration ---
+  // Listen on all available network interfaces (0.0.0.0)
   final ip = InternetAddress.anyIPv4;
+  // Use the port from the environment variable, or fallback to 8080
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
 
-  // Pipeline-ul with Middleware for login
+  // --- Pipeline Configuration ---
+  // A pipeline processes the request before it reaches the router.
+  // logRequests() automatically prints every incoming request to the console.
   final pipeline = Pipeline()
       .addMiddleware(logRequests())
       .addHandler(router.call);
 
-  // Starting the server
+  // --- Start Server ---
   final server = await serve(pipeline, ip, port);
   print(
     '🔥 The OmniFit Server is ONLINE at http://${server.address.host}:${server.port}',
   );
 }
 
-// --- HANDLER ROOT (Health Check) ---
+// ==========================================
+//          SYSTEM / AUTH HANDLERS
+// ==========================================
+
+// --- ROOT HANDLER (Health Check) ---
+// Used to verify if the server is up and running.
 Response _rootHandler(Request req) {
   return Response.ok(
-    json.encode({'status': 'online', 'message': 'OmniFit API rulează corect'}),
+    json.encode({'status': 'online', 'message': 'OmniFit API is running correctly'}),
     headers: {'Content-Type': 'application/json'},
   );
 }
 
-//HANDLER PLACEHOLDER
+// --- PLACEHOLDER AUTH HANDLER ---
+// Will handle user login in the future.
 Future<Response> _placeholderHandler(Request req) async {
   return Response.ok(
     json.encode({
       'status': 'coming_soon',
-      'message': 'Acest endpoint va fi implementat în curând.',
+      'message': 'This endpoint will be implemented soon.',
     }),
     headers: {'Content-Type': 'application/json'},
   );
 }
 
-// Save and edit workout handler
+// ==========================================
+//            WORKOUT HANDLERS
+// ==========================================
+
+// --- SAVE / UPDATE WORKOUT (POST) ---
+// Handles both creating a new workout and updating an existing one.
 Future<Response> _saveWorkoutHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final payload = await req.readAsString();
     final data = json.decode(payload);
 
-    final incomingId =
-        data['id']; // Poate fi null (nou) sau un ID existent (editare)
+    final incomingId = data['id']; // Can be null (new) or an existing ID (edit)
     final userId = data['user_id'] ?? 1;
-    final workoutName = data['workoutName'] ?? 'Fără nume';
+    final workoutName = data['workoutName'] ?? 'Unnamed Workout';
     final date = data['date'] ?? DateTime.now().toIso8601String();
-    final rpe = data['rpe'] ?? 5.0;
+    final rpe = data['rpe'] ?? 5.0; // RPE = Rate of Perceived Exertion (Intensity)
     final List<dynamic>? exercises = data['exercises'];
 
     int currentWorkoutId;
 
     if (incomingId != null && !incomingId.toString().contains('#')) {
-      // If there's an edit we update
+      // SCENARIO 1: EDIT EXISTING WORKOUT
       currentWorkoutId = int.parse(incomingId.toString());
+      
+      // Update the main workout details
       await conn.query(
         'UPDATE Workouts SET name = ?, rpe = ?, date_created = ? WHERE id = ?',
         [workoutName, rpe, DateTime.parse(date).toUtc(), currentWorkoutId],
       );
 
-      // We delete the old exercises to replace with the new ones
-      await conn.query('DELETE FROM Sets WHERE workoutID = ?', [
-        currentWorkoutId,
-      ]);
+      // Delete the old exercises to replace them entirely with the updated list
+      await conn.query('DELETE FROM Sets WHERE workoutID = ?', [currentWorkoutId]);
     } else {
+      // SCENARIO 2: CREATE NEW WORKOUT
       var result = await conn.query(
         'INSERT INTO Workouts (user_id, name, rpe, date_created) VALUES (?, ?, ?, ?)',
         [userId, workoutName, rpe, DateTime.parse(date).toUtc()],
       );
-      currentWorkoutId = result.insertId!;
+      currentWorkoutId = result.insertId!; // Get the newly generated Database ID
     }
 
-    // Inserting Exercises
+    // Insert all exercises associated with this workout into the 'Sets' table
     if (exercises != null) {
       for (var ex in exercises) {
         await conn.query(
@@ -124,7 +148,7 @@ Future<Response> _saveWorkoutHandler(Request req) async {
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
-    print("Eroare la salvare: $e");
+    print("Error saving workout: $e");
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
       headers: {'Content-Type': 'application/json'},
@@ -132,14 +156,15 @@ Future<Response> _saveWorkoutHandler(Request req) async {
   }
 }
 
-// Get Workout Handler
+// --- GET ALL WORKOUTS (GET) ---
+// Retrieves a user's entire workout history, including nested exercises.
 Future<Response> _getWorkoutHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
     List<Map<String, dynamic>> finalWorkouts = [];
 
-    // We search for the user's workouts
+    // 1. Fetch all parent workouts for this user, newest first
     var workouts = await conn.query(
       'SELECT * FROM Workouts WHERE user_id = ? ORDER BY date_created DESC',
       [userId],
@@ -148,18 +173,17 @@ Future<Response> _getWorkoutHandler(Request req) async {
     for (var w in workouts) {
       int workoutId = w['id'];
 
-      // We search for the exercises in this workout
-      var sets = await conn.query('SELECT * FROM Sets WHERE workoutID = ?', [
-        workoutId,
-      ]);
+      // 2. Fetch all child exercises (sets) that belong to this specific workout
+      var sets = await conn.query('SELECT * FROM Sets WHERE workoutID = ?', [workoutId]);
 
       List<Map<String, dynamic>> exercisesJson = [];
-      int workoutGlobalRest = 60; // Default
+      int workoutGlobalRest = 60; // Default rest time
 
       var setsList = sets.toList();
       for (var i = 0; i < setsList.length; i++) {
         var s = setsList[i];
 
+        // Assume the first exercise dictates the global rest time
         if (i == 0) {
           workoutGlobalRest = s['recoveryBetweenSets'] ?? 60;
         }
@@ -174,7 +198,7 @@ Future<Response> _getWorkoutHandler(Request req) async {
         });
       }
 
-      // Building the object for the frontend
+      // 3. Assemble the final JSON structure for the frontend
       finalWorkouts.add({
         "id": workoutId,
         "workoutName": w['name'],
@@ -190,7 +214,7 @@ Future<Response> _getWorkoutHandler(Request req) async {
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
-    print("Eroare la extragere: $e");
+    print("Error fetching workouts: $e");
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
       headers: {'Content-Type': 'application/json'},
@@ -198,7 +222,45 @@ Future<Response> _getWorkoutHandler(Request req) async {
   }
 }
 
-// Handler for saving the objective
+// --- DELETE WORKOUT (DELETE) ---
+Future<Response> _deleteWorkoutHandler(Request req) async {
+  try {
+    final workoutId = req.url.queryParameters['id'];
+    if (workoutId == null) {
+      return Response.badRequest(
+        body: json.encode({'error': 'Missing workout ID.'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+
+    final conn = await Database.connect();
+
+    // Delete the Workout. 
+    // (The associated exercises in the 'Sets' table will be deleted automatically 
+    // if 'ON DELETE CASCADE' is configured in the SQL database schema).
+    await conn.query('DELETE FROM Workouts WHERE id = ?', [workoutId]);
+
+    return Response.ok(
+      json.encode({
+        'status': 'deleted',
+        'message': 'Workout deleted successfully!',
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    print("Error deleting workout: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
+}
+
+// ==========================================
+//          GOALS & DASHBOARD AI
+// ==========================================
+
+// --- SAVE WEEKLY SET GOAL (POST) ---
 Future<Response> _saveGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -206,21 +268,23 @@ Future<Response> _saveGoalHandler(Request req) async {
     final data = json.decode(payload);
 
     final userId = data['user_id'] ?? 1;
-    final muscleGroup = data['muscleGroup'];
+    final muscleGroup = data['muscleGroup']; // e.g., 'Chest', 'Back'
     final targetSets = data['targetSets'];
 
-    // Checking if an objective already exists
+    // Check if the user already has a goal set for this specific muscle
     var existing = await conn.query(
       'SELECT id FROM Goals WHERE user_id = ? AND muscle_group = ?',
       [userId, muscleGroup],
     );
 
     if (existing.isNotEmpty) {
+      // Update existing goal
       await conn.query('UPDATE Goals SET target_sets = ? WHERE id = ?', [
         targetSets,
         existing.first['id'],
       ]);
     } else {
+      // Insert new goal
       await conn.query(
         'INSERT INTO Goals (user_id, muscle_group, target_sets) VALUES (?, ?, ?)',
         [userId, muscleGroup, targetSets],
@@ -235,22 +299,24 @@ Future<Response> _saveGoalHandler(Request req) async {
   }
 }
 
-// --- HANDLER EXTRAGERE OBIECTIVE + CALCULARE PROGRES (GET) ---
+// --- GET GOALS + CALCULATE WEEKLY PROGRESS (GET) ---
+// Retrieves target sets and calculates how many sets the user actually did in the last 7 days.
 Future<Response> _getGoalsHandler(Request req) async {
   try {
     final conn = await Database.connect();
-    // Ne asigurăm că user_id e corect convertit în INT pentru MySQL
+    // Ensure user_id is properly cast to an Integer for MySQL safety
     final userId = int.tryParse(req.url.queryParameters['user_id'] ?? '1') ?? 1;
 
-    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [
-      userId,
-    ]);
+    // Fetch user's set targets
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
     List<Map<String, dynamic>> finalGoals = [];
 
     for (var g in goals) {
       String muscle = g['muscle_group'].toString();
       int target = int.tryParse(g['target_sets'].toString()) ?? 0;
 
+      // SQL Magic: Sum up all sets completed for this specific muscle group 
+      // in workouts logged within the last 7 days (DATE_SUB(CURDATE(), INTERVAL 7 DAY)).
       var progressQuery = await conn.query(
         '''
         SELECT SUM(s.setsCount) as total 
@@ -263,9 +329,7 @@ Future<Response> _getGoalsHandler(Request req) async {
 
       int currentSets = 0;
       if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
-        currentSets = double.parse(
-          progressQuery.first['total'].toString(),
-        ).toInt();
+        currentSets = double.parse(progressQuery.first['total'].toString()).toInt();
       }
 
       finalGoals.add({
@@ -280,19 +344,21 @@ Future<Response> _getGoalsHandler(Request req) async {
       headers: {'Content-Type': 'application/json'},
     );
   } catch (e) {
-    print("Eroare la GET Goals: $e");
+    print("Error getting Goals: $e");
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
     );
   }
 }
 
-// --- HANDLER MOTOR DE RECOMANDĂRI (GET) ---
+// --- DASHBOARD RECOMMENDATION ENGINE (GET) ---
+// Analyzes recent workouts to generate a dynamic, personalized message.
 Future<Response> _getDashboardHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = int.tryParse(req.url.queryParameters['user_id'] ?? '1') ?? 1;
 
+    // 1. Calculate the Average RPE (Intensity) from the last 3 workouts
     var rpeQuery = await conn.query(
       '''
       SELECT AVG(rpe) as avg_rpe FROM (SELECT rpe FROM Workouts WHERE user_id = ? ORDER BY date_created DESC LIMIT 3) as sub
@@ -305,9 +371,8 @@ Future<Response> _getDashboardHandler(Request req) async {
       avgRpe = double.parse(rpeQuery.first['avg_rpe'].toString());
     }
 
-    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [
-      userId,
-    ]);
+    // 2. Find a "Lagging Muscle" (a muscle group where the weekly goal hasn't been met)
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
     String laggingMuscle = "";
 
     for (var g in goals) {
@@ -321,25 +386,28 @@ Future<Response> _getDashboardHandler(Request req) async {
 
       int currentSets = 0;
       if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
-        currentSets = double.parse(
-          progressQuery.first['total'].toString(),
-        ).toInt();
+        currentSets = double.parse(progressQuery.first['total'].toString()).toInt();
       }
 
+      // If they haven't reached their target, mark this muscle as lagging and break the loop
       if (currentSets < target) {
         laggingMuscle = muscle;
         break;
       }
     }
 
+    // 3. Generate the actual string recommendation based on the collected data
     String recommendation = "";
     if (avgRpe >= 8.0) {
+      // They are training too hard -> Suggest recovery
       recommendation =
           "Attention! You have had very intense workouts recently (average RPE: ${avgRpe.toStringAsFixed(1)}/10). We recommend a day of active recovery, stretching, or yoga today!";
     } else if (laggingMuscle.isNotEmpty) {
+      // They are missing goals -> Suggest working out the lagging muscle
       recommendation =
           "You feel good (RPE: ${avgRpe.toStringAsFixed(1)}/10). Today would be ideal for doing a workout for '$laggingMuscle' to reach your weekly set goal!";
     } else {
+      // Everything is perfect
       recommendation =
           "You are a champion! The RPE is optimal and you have already reached all your weekly set goals. You can do any workout you want today!";
     }
@@ -356,40 +424,12 @@ Future<Response> _getDashboardHandler(Request req) async {
   }
 }
 
-// --- HANDLER ȘTERGERE ANTRENAMENT (DELETE) ---
-Future<Response> _deleteWorkoutHandler(Request req) async {
-  try {
-    final workoutId = req.url.queryParameters['id'];
-    if (workoutId == null) {
-      return Response.badRequest(
-        body: json.encode({'error': 'Missing workout ID.'}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    }
+// ==========================================
+//   TRACKING HANDLERS (Nutrition, Hydration, Meditation)
+//   These are standard CRUD endpoints.
+// ==========================================
 
-    final conn = await Database.connect();
-
-    // Ștergem Antrenamentul
-    // (Exercițiile din tabela Sets se vor șterge automat datorită ON DELETE CASCADE setat in SQL)
-    await conn.query('DELETE FROM Workouts WHERE id = ?', [workoutId]);
-
-    return Response.ok(
-      json.encode({
-        'status': 'deleted',
-        'message': 'Workout deleted successfully!',
-      }),
-      headers: {'Content-Type': 'application/json'},
-    );
-  } catch (e) {
-    print("Error at deletion: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-      headers: {'Content-Type': 'application/json'},
-    );
-  }
-}
-
-// --- HANDLER SALVARE NUTRITIE (POST) ---
+// --- SAVE NUTRITION LOG (POST) ---
 Future<Response> _saveNutritionHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -406,27 +446,17 @@ Future<Response> _saveNutritionHandler(Request req) async {
 
     await conn.query(
       'INSERT INTO NutritionLog (user_id, meal_name, calories, proteins, carbs, fats, date_logged) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        userId,
-        mealName,
-        calories,
-        proteins,
-        carbs,
-        fats,
-        DateTime.parse(date).toUtc(),
-      ],
+      [userId, mealName, calories, proteins, carbs, fats, DateTime.parse(date).toUtc()],
     );
 
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving nutrition: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE NUTRITIE (GET) ---
+// --- GET NUTRITION LOGS (GET) ---
 Future<Response> _getNutritionHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -456,13 +486,11 @@ Future<Response> _getNutritionHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting nutrition: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER SALVARE GOAL NUTRITIE (POST) ---
+// --- SAVE NUTRITION GOAL (POST) ---
 Future<Response> _saveNutritionGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -472,44 +500,30 @@ Future<Response> _saveNutritionGoalHandler(Request req) async {
     final userId = data['user_id'] ?? 1;
     final goal = data['daily_calorie_goal'] ?? 2400;
 
-    var existing = await conn.query(
-      'SELECT id FROM NutritionGoals WHERE user_id = ?',
-      [userId],
-    );
+    var existing = await conn.query('SELECT id FROM NutritionGoals WHERE user_id = ?', [userId]);
 
     if (existing.isNotEmpty) {
-      await conn.query(
-        'UPDATE NutritionGoals SET daily_calorie_goal = ? WHERE user_id = ?',
-        [goal, userId],
-      );
+      await conn.query('UPDATE NutritionGoals SET daily_calorie_goal = ? WHERE user_id = ?', [goal, userId]);
     } else {
-      await conn.query(
-        'INSERT INTO NutritionGoals (user_id, daily_calorie_goal) VALUES (?, ?)',
-        [userId, goal],
-      );
+      await conn.query('INSERT INTO NutritionGoals (user_id, daily_calorie_goal) VALUES (?, ?)', [userId, goal]);
     }
 
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving nutrition goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE GOAL NUTRITIE (GET) ---
+// --- GET NUTRITION GOAL (GET) ---
 Future<Response> _getNutritionGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
 
-    var result = await conn.query(
-      'SELECT daily_calorie_goal FROM NutritionGoals WHERE user_id = ?',
-      [userId],
-    );
+    var result = await conn.query('SELECT daily_calorie_goal FROM NutritionGoals WHERE user_id = ?', [userId]);
 
-    int goal = 2400;
+    int goal = 2400; // Default fallback goal
     if (result.isNotEmpty) {
       goal = int.parse(result.first['daily_calorie_goal'].toString());
     }
@@ -520,13 +534,11 @@ Future<Response> _getNutritionGoalHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting nutrition goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER SALVARE HIDRATARE (POST) ---
+// --- SAVE HYDRATION LOG (POST) ---
 Future<Response> _saveHydrationHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -545,13 +557,11 @@ Future<Response> _saveHydrationHandler(Request req) async {
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving hydration: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE HIDRATARE (GET) ---
+// --- GET HYDRATION LOGS (GET) ---
 Future<Response> _getHydrationHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -575,13 +585,11 @@ Future<Response> _getHydrationHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting hydration: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER SALVARE GOAL HIDRATARE (POST) ---
+// --- SAVE HYDRATION GOAL (POST) ---
 Future<Response> _saveHydrationGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -591,41 +599,27 @@ Future<Response> _saveHydrationGoalHandler(Request req) async {
     final userId = data['user_id'] ?? 1;
     final goal = data['daily_water_goal'] ?? 2500;
 
-    var existing = await conn.query(
-      'SELECT id FROM HydrationGoals WHERE user_id = ?',
-      [userId],
-    );
+    var existing = await conn.query('SELECT id FROM HydrationGoals WHERE user_id = ?', [userId]);
 
     if (existing.isNotEmpty) {
-      await conn.query(
-        'UPDATE HydrationGoals SET daily_water_goal = ? WHERE user_id = ?',
-        [goal, userId],
-      );
+      await conn.query('UPDATE HydrationGoals SET daily_water_goal = ? WHERE user_id = ?', [goal, userId]);
     } else {
-      await conn.query(
-        'INSERT INTO HydrationGoals (user_id, daily_water_goal) VALUES (?, ?)',
-        [userId, goal],
-      );
+      await conn.query('INSERT INTO HydrationGoals (user_id, daily_water_goal) VALUES (?, ?)', [userId, goal]);
     }
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving hydration goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE GOAL HIDRATARE (GET) ---
+// --- GET HYDRATION GOAL (GET) ---
 Future<Response> _getHydrationGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
 
-    var result = await conn.query(
-      'SELECT daily_water_goal FROM HydrationGoals WHERE user_id = ?',
-      [userId],
-    );
+    var result = await conn.query('SELECT daily_water_goal FROM HydrationGoals WHERE user_id = ?', [userId]);
 
     int goal = 2500; // Default
     if (result.isNotEmpty) {
@@ -637,13 +631,11 @@ Future<Response> _getHydrationGoalHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting hydration goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER SALVARE MEDITAȚIE (POST) ---
+// --- SAVE MEDITATION LOG (POST) ---
 Future<Response> _saveMeditationHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -662,13 +654,11 @@ Future<Response> _saveMeditationHandler(Request req) async {
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving meditation: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE MEDITAȚIE (GET) ---
+// --- GET MEDITATION LOGS (GET) ---
 Future<Response> _getMeditationHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -692,13 +682,11 @@ Future<Response> _getMeditationHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting meditation: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER SALVARE GOAL MEDITAȚIE (POST) ---
+// --- SAVE MEDITATION GOAL (POST) ---
 Future<Response> _saveMeditationGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -708,41 +696,27 @@ Future<Response> _saveMeditationGoalHandler(Request req) async {
     final userId = data['user_id'] ?? 1;
     final goal = data['daily_minutes_goal'] ?? 30;
 
-    var existing = await conn.query(
-      'SELECT id FROM MeditationGoals WHERE user_id = ?',
-      [userId],
-    );
+    var existing = await conn.query('SELECT id FROM MeditationGoals WHERE user_id = ?', [userId]);
 
     if (existing.isNotEmpty) {
-      await conn.query(
-        'UPDATE MeditationGoals SET daily_minutes_goal = ? WHERE user_id = ?',
-        [goal, userId],
-      );
+      await conn.query('UPDATE MeditationGoals SET daily_minutes_goal = ? WHERE user_id = ?', [goal, userId]);
     } else {
-      await conn.query(
-        'INSERT INTO MeditationGoals (user_id, daily_minutes_goal) VALUES (?, ?)',
-        [userId, goal],
-      );
+      await conn.query('INSERT INTO MeditationGoals (user_id, daily_minutes_goal) VALUES (?, ?)', [userId, goal]);
     }
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving meditation goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 
-// --- HANDLER EXTRAGERE GOAL MEDITAȚIE (GET) ---
+// --- GET MEDITATION GOAL (GET) ---
 Future<Response> _getMeditationGoalHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
 
-    var result = await conn.query(
-      'SELECT daily_minutes_goal FROM MeditationGoals WHERE user_id = ?',
-      [userId],
-    );
+    var result = await conn.query('SELECT daily_minutes_goal FROM MeditationGoals WHERE user_id = ?', [userId]);
 
     int goal = 30; // Default
     if (result.isNotEmpty) {
@@ -754,8 +728,6 @@ Future<Response> _getMeditationGoalHandler(Request req) async {
     );
   } catch (e) {
     print("Error getting meditation goal: $e");
-    return Response.internalServerError(
-      body: json.encode({'error': e.toString()}),
-    );
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }

@@ -16,13 +16,10 @@ void main() {
 // It acts like a map, connecting specific URLs/paths to specific screens.
 final GoRouter _router = GoRouter(
   // The default screen the app opens when it starts
-  initialLocation: '/', 
+  initialLocation: '/',
   routes: [
     // Route for the Login Screen
-    GoRoute(
-      path: '/', 
-      builder: (context, state) => const LoginScreen()
-    ),
+    GoRoute(path: '/', builder: (context, state) => const LoginScreen()),
     // Route for the Main Screen (Dashboard/Home area after login)
     GoRoute(
       path: '/dashboard',
@@ -38,21 +35,20 @@ class OmniFitApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We use MaterialApp.router instead of standard MaterialApp 
+    // We use MaterialApp.router instead of standard MaterialApp
     // to enable the go_router navigation system
     return MaterialApp.router(
       title: 'OmniFit', // The name of the app shown in the OS task manager
-      
       // Global visual theme settings
       theme: ThemeData(
         // Automatically generates a matching color palette based on blue
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         // Enables the modern Material Design 3 guidelines
-        useMaterial3: true, 
+        useMaterial3: true,
       ),
-      
+
       // Hooks up the router configuration defined above to the app
-      routerConfig: _router, 
+      routerConfig: _router,
     );
   }
 }

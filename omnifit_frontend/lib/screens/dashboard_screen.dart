@@ -4,9 +4,10 @@ import 'dart:convert';
 import 'profile_screen.dart';
 import 'hydration_screen.dart';
 import 'meditation_screen.dart';
+import '../constants.dart';
 
 // Base URL for API requests (Localhost pointing to backend)
-final String baseUrl = 'http://127.0.0.1:8080';
+final String baseUrl = ApiConstants.baseUrl;
 
 //  MAIN DASHBOARD SCREEN
 // This is the home tab where users can see their daily overview, quick actions, and AI insights.

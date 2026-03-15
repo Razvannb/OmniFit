@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import '../constants.dart';
 
 // Base URL for API requests
-final String baseUrl = 'http://127.0.0.1:8080';
+final String baseUrl = ApiConstants.baseUrl;
 
 //  DATA MODEL FOR WEEKLY SETS
 // Represents a weekly workout goal for a specific muscle group

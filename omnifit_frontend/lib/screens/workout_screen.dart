@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../constants.dart';
 
 // Base URL for the backend API
-final String baseUrl = 'http://127.0.0.1:8080'; //127.0.0.1
+final String baseUrl = ApiConstants.baseUrl;
 
 //  DATA MODELS
 

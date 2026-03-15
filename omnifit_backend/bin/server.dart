@@ -3,12 +3,9 @@ import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
-
-// Importurile din proiectul tău
 import 'package:omnifit_backend/db/database.dart';
 
-void main(List<String> args) async {
-  // Configurarea Routerului
+void main(List<String> args) async {   // Router Configuration
   final router = Router()
     ..get('/', _rootHandler)
     ..post('/api/save-workout', _saveWorkoutHandler)
@@ -16,25 +13,28 @@ void main(List<String> args) async {
     ..delete(
       '/api/delete-workout',
       _deleteWorkoutHandler,
-    ) // RUTA NOUĂ PENTRU DELETE
+    )
     ..post('/api/auth/login', _placeholderHandler)
     ..post('/api/hydration', _placeholderHandler)
     ..post('/api/nutrition', _placeholderHandler)
-    ..post('/api/goals', _placeholderHandler);
+    ..post('/api/goals', _placeholderHandler)
+    ..post('/api/goals', _saveGoalHandler)
+    ..get('/api/goals', _getGoalsHandler)
+    ..get('/api/dashboard', _getDashboardHandler);
 
-  // Configurarea IP-ului și Portului
+  // IP and port configuration
   final ip = InternetAddress.anyIPv4;
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
 
-  // Pipeline-ul cu Middleware pentru logare
+  // Pipeline-ul with Middleware for login
   final pipeline = Pipeline()
       .addMiddleware(logRequests())
       .addHandler(router.call);
 
-  // Pornirea Serverului
+  // Starting the server
   final server = await serve(pipeline, ip, port);
   print(
-    '🔥 Serverul OmniFit este ONLINE pe http://${server.address.host}:${server.port}',
+    '🔥 The OmniFit Server is ONLINE at http://${server.address.host}:${server.port}',
   );
 }
 
@@ -46,7 +46,7 @@ Response _rootHandler(Request req) {
   );
 }
 
-// --- HANDLER PLACEHOLDER (Pentru rutele neimplementate încă) ---
+//HANDLER PLACEHOLDER
 Future<Response> _placeholderHandler(Request req) async {
   return Response.ok(
     json.encode({
@@ -57,7 +57,7 @@ Future<Response> _placeholderHandler(Request req) async {
   );
 }
 
-// --- HANDLER SALVARE & EDITARE ANTRENAMENT (POST) ---
+// Save and edit workout handler
 Future<Response> _saveWorkoutHandler(Request req) async {
   try {
     final conn = await Database.connect();
@@ -74,31 +74,27 @@ Future<Response> _saveWorkoutHandler(Request req) async {
 
     int currentWorkoutId;
 
-    // 1. Verificăm dacă este EDITARE sau ADĂUGARE NOUĂ
-    // Dacă ID-ul există și nu este unul generat local de Flutter (care conține #)
     if (incomingId != null && !incomingId.toString().contains('#')) {
-      // ESTE EDITARE! Facem UPDATE
+      // If there's an edit we update
       currentWorkoutId = int.parse(incomingId.toString());
       await conn.query(
         'UPDATE Workouts SET name = ?, rpe = ?, date_created = ? WHERE id = ?',
         [workoutName, rpe, DateTime.parse(date).toUtc(), currentWorkoutId],
       );
 
-      // Ștergem exercițiile vechi din baza de date pentru a le pune pe cele noi
+      // We delete the old exercises to replace with the new ones
       await conn.query('DELETE FROM Sets WHERE workoutID = ?', [
         currentWorkoutId,
       ]);
     } else {
-      // ESTE ADĂUGARE NOUĂ! Facem INSERT
       var result = await conn.query(
         'INSERT INTO Workouts (user_id, name, rpe, date_created) VALUES (?, ?, ?, ?)',
-        // --- AM ADAUGAT .toUtc() MAI JOS ---
         [userId, workoutName, rpe, DateTime.parse(date).toUtc()],
       );
       currentWorkoutId = result.insertId!;
     }
 
-    // 2. Inserăm Exercițiile noi (se rulează mereu ca să avem seturile actualizate)
+    // Inserting Exercises
     if (exercises != null) {
       for (var ex in exercises) {
         await conn.query(
@@ -116,7 +112,6 @@ Future<Response> _saveWorkoutHandler(Request req) async {
       }
     }
 
-    // Returnăm succesul și id-ul antrenamentului
     return Response.ok(
       json.encode({'status': 'success', 'workout_id': currentWorkoutId}),
       headers: {'Content-Type': 'application/json'},
@@ -128,17 +123,16 @@ Future<Response> _saveWorkoutHandler(Request req) async {
       headers: {'Content-Type': 'application/json'},
     );
   }
-  // Am scos `finally { await conn.close(); }` pentru a preveni eroarea "Socket closed"
 }
 
-// --- HANDLER EXTRAGERE ANTRENAMENTE (GET) ---
+// Get Workout Handler
 Future<Response> _getWorkoutHandler(Request req) async {
   try {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
     List<Map<String, dynamic>> finalWorkouts = [];
 
-    // 1. Căutăm antrenamentele userului
+    // We search for the user's workouts
     var workouts = await conn.query(
       'SELECT * FROM Workouts WHERE user_id = ? ORDER BY date_created DESC',
       [userId],
@@ -147,7 +141,7 @@ Future<Response> _getWorkoutHandler(Request req) async {
     for (var w in workouts) {
       int workoutId = w['id'];
 
-      // 2. Căutăm exercițiile (Sets) pentru acest antrenament
+      // We search for the exercises in this workout
       var sets = await conn.query('SELECT * FROM Sets WHERE workoutID = ?', [
         workoutId,
       ]);
@@ -159,7 +153,6 @@ Future<Response> _getWorkoutHandler(Request req) async {
       for (var i = 0; i < setsList.length; i++) {
         var s = setsList[i];
 
-        // Luăm timpul de pauză de la primul exercițiu pentru "Global Rest Time"
         if (i == 0) {
           workoutGlobalRest = s['recoveryBetweenSets'] ?? 60;
         }
@@ -168,20 +161,20 @@ Future<Response> _getWorkoutHandler(Request req) async {
           "exerciseName": s['exerciseName'],
           "muscleGroup": s['muscleGroup'],
           "sets": s['setsCount'],
-          "reps": s['reps'], // Baza de date returnează string-ul "10,12,10"
+          "reps": s['reps'],
           "recoveryBetweenSets": s['recoveryBetweenSets'],
           "recoveryExercise": s['recoveryExercise'],
         });
       }
 
-      // 3. Construim obiectul pentru Frontend
+      // Building the object for the frontend
       finalWorkouts.add({
-        "id": workoutId, // ID-ul real din DB
+        "id": workoutId,
         "workoutName": w['name'],
         "date": (w['date_created'] as DateTime).toIso8601String(),
         "rpe": w['rpe'],
         "globalRestTime": workoutGlobalRest,
-        "exercises": exercisesJson, // Punem array-ul de exerciții aici
+        "exercises": exercisesJson,
       });
     }
 
@@ -195,6 +188,119 @@ Future<Response> _getWorkoutHandler(Request req) async {
       body: json.encode({'error': e.toString()}),
       headers: {'Content-Type': 'application/json'},
     );
+  }
+}
+
+// Handler for saving the objective
+Future<Response> _saveGoalHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final muscleGroup = data['muscleGroup'];
+    final targetSets = data['targetSets'];
+
+    // Checking if an objective already exists
+    var existing = await conn.query('SELECT id FROM Goals WHERE user_id = ? AND muscle_group = ?', [userId, muscleGroup]);
+    
+    if (existing.isNotEmpty) {
+      await conn.query('UPDATE Goals SET target_sets = ? WHERE id = ?', [targetSets, existing.first['id']]);
+    } else {
+      await conn.query('INSERT INTO Goals (user_id, muscle_group, target_sets) VALUES (?, ?, ?)', [userId, muscleGroup, targetSets]);
+    }
+
+    return Response.ok(json.encode({'status': 'success'}));
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+  }
+}
+
+// --- HANDLER EXTRAGERE OBIECTIVE + CALCULARE PROGRES (GET) ---
+Future<Response> _getGoalsHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+    
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
+    List<Map<String, dynamic>> finalGoals = [];
+
+    for (var g in goals) {
+      String muscle = g['muscle_group'];
+      int target = g['target_sets'];
+
+      // Magia: Căutăm în ultimele 7 zile câte seturi a făcut REA pentru grupa asta musculară
+      var progressQuery = await conn.query('''
+        SELECT SUM(s.setsCount) as total 
+        FROM Sets s 
+        JOIN Workouts w ON s.workoutID = w.id 
+        WHERE w.user_id = ? AND s.muscleGroup = ? AND w.date_created >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      ''', [userId, muscle]);
+
+      int currentSets = 0;
+      if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
+        currentSets = int.parse(progressQuery.first['total'].toString());
+      }
+
+      finalGoals.add({
+        'id': g['id'],
+        'muscleGroup': muscle,
+        'targetSets': target,
+        'currentSets': currentSets
+      });
+    }
+    return Response.ok(json.encode(finalGoals), headers: {'Content-Type': 'application/json'});
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+  }
+}
+
+// --- HANDLER MOTOR DE RECOMANDĂRI (GET) ---
+Future<Response> _getDashboardHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+
+    // 1. Calculăm RPE-ul mediu din ultimele 3 antrenamente
+    var rpeQuery = await conn.query('''
+      SELECT AVG(rpe) as avg_rpe FROM (SELECT rpe FROM Workouts WHERE user_id = ? ORDER BY date_created DESC LIMIT 3) as sub
+    ''', [userId]);
+
+    double avgRpe = 5.0;
+    if (rpeQuery.isNotEmpty && rpeQuery.first['avg_rpe'] != null) {
+      avgRpe = double.parse(rpeQuery.first['avg_rpe'].toString());
+    }
+
+    // 2. Găsim o grupă musculară care a rămas în urmă față de obiectiv
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
+    String laggingMuscle = "";
+
+    for (var g in goals) {
+      String muscle = g['muscle_group'];
+      int target = g['target_sets'];
+      var progressQuery = await conn.query('SELECT SUM(s.setsCount) as total FROM Sets s JOIN Workouts w ON s.workoutID = w.id WHERE w.user_id = ? AND s.muscleGroup = ? AND w.date_created >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)', [userId, muscle]);
+      int currentSets = (progressQuery.isNotEmpty && progressQuery.first['total'] != null) ? int.parse(progressQuery.first['total'].toString()) : 0;
+
+      if (currentSets < target) {
+        laggingMuscle = muscle;
+        break; // Am găsit grupa musculară pe care trebuie să o lucreze
+      }
+    }
+
+    // 3. Generăm textul inteligent
+    String recommendation = "";
+    if (avgRpe >= 8.0) {
+      recommendation = "Atenție! Ai avut antrenamente foarte intense recent (RPE mediu: ${avgRpe.toStringAsFixed(1)}/10). Îți recomandăm o zi de recuperare activă, stretching sau yoga azi!";
+    } else if (laggingMuscle.isNotEmpty) {
+      recommendation = "Te simți bine (RPE: ${avgRpe.toStringAsFixed(1)}/10). Astăzi ar fi ideal să faci un antrenament pentru '$laggingMuscle' pentru a-ți atinge obiectivul săptămânal de seturi!";
+    } else {
+      recommendation = "Ești un campion! RPE-ul e optim și ai atins deja toate obiectivele săptămânale de volum. Poți face orice antrenament dorești azi!";
+    }
+
+    return Response.ok(json.encode({'recommendation': recommendation}), headers: {'Content-Type': 'application/json'});
+  } catch (e) {
+    return Response.internalServerError(body: json.encode({'error': e.toString()}));
   }
 }
 

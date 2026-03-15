@@ -335,7 +335,7 @@ class _HydrationScreenState extends State<HydrationScreen> {
               ),
               subtitle: const Text('Remind me to stay hydrated every hour!'),
               value: isReminderOn,
-              activeColor: Colors.lightBlue,
+              activeThumbColor: Colors.lightBlue,
               onChanged: (bool value) {
                 // Update state when switch is toggled
                 setState(() {

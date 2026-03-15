@@ -17,7 +17,6 @@ void main(List<String> args) async {   // Router Configuration
     ..post('/api/auth/login', _placeholderHandler)
     ..post('/api/hydration', _placeholderHandler)
     ..post('/api/nutrition', _placeholderHandler)
-    ..post('/api/goals', _placeholderHandler)
     ..post('/api/goals', _saveGoalHandler)
     ..get('/api/goals', _getGoalsHandler)
     ..get('/api/dashboard', _getDashboardHandler);
@@ -217,7 +216,7 @@ Future<Response> _saveGoalHandler(Request req) async {
   }
 }
 
-// --- HANDLER EXTRAGERE OBIECTIVE + CALCULARE PROGRES (GET) ---
+// Handler for extracting objectives
 Future<Response> _getGoalsHandler(Request req) async {
   try {
     final conn = await Database.connect();

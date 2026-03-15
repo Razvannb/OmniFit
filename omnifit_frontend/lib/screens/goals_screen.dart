@@ -76,38 +76,46 @@ class _GoalScreenState extends State<GoalScreen> {
       final response = await http.get(url).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          _goals.clear();
-          _goals.addAll(
-            data.map(
-              (item) => WeeklySetGoal(
-                id: item['id']?.toString(),
-                muscleGroup: item['muscle_group'] ?? 'Unknown',
-                targetSets: item['target_sets'] ?? 0,
-                completedSets: item['completed_sets'] ?? 0,
+
+        // Verificăm 'mounted' înainte de setState!
+        if (mounted) {
+          setState(() {
+            _goals.clear();
+            _goals.addAll(
+              data.map(
+                (item) => WeeklySetGoal(
+                  id: item['id']?.toString(),
+                  muscleGroup: item['muscle_group'] ?? 'Unknown',
+                  targetSets: item['target_sets'] ?? 0,
+                  completedSets: item['completed_sets'] ?? 0,
+                ),
               ),
-            ),
-          );
-        });
+            );
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        if (_goals.isEmpty) {
-          _goals.addAll([
-            WeeklySetGoal(
-              muscleGroup: 'Chest',
-              targetSets: 12,
-              completedSets: 5,
-            ),
-            WeeklySetGoal(
-              muscleGroup: 'Back',
-              targetSets: 14,
-              completedSets: 14,
-            ),
-          ]);
-        }
-      });
+      // --- AICI AM PUS if (mounted) PENTRU A REZOLVA EROAREA TA ---
+      if (mounted) {
+        setState(() {
+          if (_goals.isEmpty) {
+            _goals.addAll([
+              WeeklySetGoal(
+                muscleGroup: 'Chest',
+                targetSets: 12,
+                completedSets: 5,
+              ),
+              WeeklySetGoal(
+                muscleGroup: 'Back',
+                targetSets: 14,
+                completedSets: 14,
+              ),
+            ]);
+          }
+        });
+      }
     } finally {
+      // --- LA FEL ȘI AICI ---
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -225,7 +233,9 @@ class _GoalScreenState extends State<GoalScreen> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryGoalColor.withOpacity(0.25),
+                    color: primaryGoalColor.withValues(
+                      alpha: 0.25,
+                    ), // <-- Actualizat
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -269,7 +279,9 @@ class _GoalScreenState extends State<GoalScreen> {
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
                       value: _calculateProgress,
-                      backgroundColor: Colors.white.withOpacity(0.3),
+                      backgroundColor: Colors.white.withValues(
+                        alpha: 0.3,
+                      ), // <-- Actualizat
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         Colors.white,
                       ),
@@ -308,7 +320,9 @@ class _GoalScreenState extends State<GoalScreen> {
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
                             BoxShadow(
-                              color: addBtnColor.withOpacity(0.3),
+                              color: addBtnColor.withValues(
+                                alpha: 0.3,
+                              ), // <-- Actualizat
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -350,14 +364,18 @@ class _GoalScreenState extends State<GoalScreen> {
                             borderRadius: BorderRadius.circular(15),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
+                                color: Colors.black.withValues(
+                                  alpha: 0.04,
+                                ), // <-- Actualizat
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                               ),
                             ],
                             border: isCompleted
                                 ? Border.all(
-                                    color: Colors.green.withOpacity(0.5),
+                                    color: Colors.green.withValues(
+                                      alpha: 0.5,
+                                    ), // <-- Actualizat
                                     width: 1.5,
                                   )
                                 : null,
@@ -478,9 +496,13 @@ class _GoalScreenState extends State<GoalScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.blueAccent.withOpacity(0.08),
+                color: Colors.blueAccent.withValues(
+                  alpha: 0.08,
+                ), // <-- Actualizat
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blueAccent.withOpacity(0.2)),
+                border: Border.all(
+                  color: Colors.blueAccent.withValues(alpha: 0.2),
+                ), // <-- Actualizat
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -22,14 +22,13 @@ class ProfileScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 48),
             _buildProfileHeader(),
-            
+
             const SizedBox(height: 48),
             _buildMenuOption(
               icon: Icons.logout,
               title: 'Log Out',
               isDestructive: true,
-              onTap: () {
-              },
+              onTap: () {},
             ),
           ],
         ),
@@ -47,7 +46,7 @@ class ProfileScreen extends StatelessWidget {
         ),
         SizedBox(height: 16),
         Text(
-          'Alex Fitness', 
+          'Alex Fitness',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -57,10 +56,7 @@ class ProfileScreen extends StatelessWidget {
         SizedBox(height: 8),
         Text(
           'alex.fitness@example.com',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey,
-          ),
+          style: TextStyle(fontSize: 16, color: Colors.grey),
         ),
       ],
     );
@@ -73,8 +69,8 @@ class ProfileScreen extends StatelessWidget {
     bool isDestructive = false,
   }) {
     final color = isDestructive ? Colors.red : Colors.black87;
-    final iconBgColor = isDestructive 
-        ? Colors.red.withOpacity(0.1) 
+    final iconBgColor = isDestructive
+        ? Colors.red.withOpacity(0.1)
         : Colors.blueAccent.withOpacity(0.1);
     final iconColor = isDestructive ? Colors.red : Colors.blueAccent;
 
@@ -95,10 +91,7 @@ class ProfileScreen extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: iconBgColor,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: iconBgColor, shape: BoxShape.circle),
           child: Icon(icon, color: iconColor, size: 24),
         ),
         title: Text(

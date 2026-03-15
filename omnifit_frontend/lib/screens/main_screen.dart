@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:omnifit/screens/goals_screen.dart';
 import 'package:omnifit/screens/nutrition_screen.dart';
-import 'workout_screen.dart'; 
+import 'workout_screen.dart';
 import '../ai_vision/pose_detector_view.dart';
 import 'dashboard_screen.dart';
 
@@ -32,24 +32,30 @@ class _MainScreenState extends State<MainScreen> {
           _onItemTapped(3); // Navigate to the Goals tab
         },
       ),
-      const WorkoutScreen(),                                                       
+      const WorkoutScreen(),
       const NutritionScreen(userId: 1),
       const GoalScreen(userId: 1),
-      const PoseDetectorView(),                                                    
+      const PoseDetectorView(),
     ];
 
     return Scaffold(
       body: screens[_selectedIndex],
-      
+
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, 
+        type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.blueAccent, 
-        unselectedItemColor: Colors.grey,     
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+        selectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.grey,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.normal,
+          fontSize: 12,
+        ),
         elevation: 8,
         items: const [
           BottomNavigationBarItem(
@@ -63,7 +69,7 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Workouts',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.restaurant_outlined), 
+            icon: Icon(Icons.restaurant_outlined),
             activeIcon: Icon(Icons.restaurant),
             label: 'Calories',
           ),

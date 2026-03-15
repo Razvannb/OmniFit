@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-// --- DATA MODELS ---
+//  DATA MODELS
+// Model representing a single meal
 class MealItem {
   final String id;
   String name;
@@ -15,24 +16,26 @@ class MealItem {
     this.proteins = 0,
     this.carbs = 0,
     this.fats = 0,
-  }) : id = UniqueKey().toString();
+  }) : id = UniqueKey().toString(); // Automatically generate a unique ID
 }
 
+// Model representing a whole day of nutrition logs
 class NutritionDayItem {
   final String id;
   DateTime date;
   List<MealItem> meals;
 
   NutritionDayItem({required this.date, required this.meals})
-    : id = UniqueKey().toString();
+    : id = UniqueKey().toString(); // Automatically generate a unique ID
 
+  // Calculate daily totals by summing up all meals
   int get totalCalories => meals.fold(0, (sum, meal) => sum + meal.calories);
   int get totalProteins => meals.fold(0, (sum, meal) => sum + meal.proteins);
   int get totalCarbs => meals.fold(0, (sum, meal) => sum + meal.carbs);
   int get totalFats => meals.fold(0, (sum, meal) => sum + meal.fats);
 }
 
-// --- SCREEN 1: NUTRITION LOG ---
+//  SCREEN 1: MAIN NUTRITION LOG
 class NutritionScreen extends StatefulWidget {
   final int userId;
   const NutritionScreen({super.key, required this.userId});
@@ -42,15 +45,16 @@ class NutritionScreen extends StatefulWidget {
 }
 
 class _NutritionScreenState extends State<NutritionScreen> {
-  final List<NutritionDayItem> _savedLogs = [];
-  int _dailyCalorieGoal = 2400;
+  final List<NutritionDayItem> _savedLogs = []; // List of all saved daily logs
+  int _dailyCalorieGoal = 2400; // Default calorie goal
 
   @override
   void initState() {
     super.initState();
-    fetchNutritionData();
+    fetchNutritionData(); // Load data when screen initializes
   }
 
+  // Helper method to get the log entry for the current day
   NutritionDayItem? get _todayLog {
     final now = DateTime.now();
     try {
@@ -61,19 +65,22 @@ class _NutritionScreenState extends State<NutritionScreen> {
             log.date.day == now.day,
       );
     } catch (e) {
-      return null;
+      return null; // Return null if no log exists for today
     }
   }
 
+  // Derived properties for UI display
   int get _caloriesConsumedToday => _todayLog?.totalCalories ?? 0;
   int get _caloriesRemaining => _dailyCalorieGoal - _caloriesConsumedToday;
   double get _progressPercentage => _dailyCalorieGoal == 0
       ? 0.0
       : (_caloriesConsumedToday / _dailyCalorieGoal).clamp(0.0, 1.0);
 
+  // Fetch data (Currently using mock data for UI testing)
   Future<void> fetchNutritionData() async {
     setState(() {
       if (_savedLogs.isEmpty) {
+        // Adding mock meals for today
         _savedLogs.add(
           NutritionDayItem(
             date: DateTime.now(),
@@ -99,6 +106,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     });
   }
 
+  // Displays an alert dialog to change the daily calorie target
   void _showEditGoalDialog() {
     final controller = TextEditingController(
       text: _dailyCalorieGoal.toString(),
@@ -126,6 +134,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              // Update goal and close dialog
               setState(
                 () => _dailyCalorieGoal = int.tryParse(controller.text) ?? 2400,
               );
@@ -140,7 +149,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isExceeded = _caloriesRemaining < 0;
+    bool isExceeded = _caloriesRemaining < 0; // Check if user went over goal
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -158,6 +167,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            //  HEADER ROW: Title and Action Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -165,26 +175,54 @@ class _NutritionScreenState extends State<NutritionScreen> {
                   'Calories',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                 ),
-                OutlinedButton.icon(
-                  onPressed: _showEditGoalDialog,
-                  icon: const Icon(Icons.adjust, size: 16),
-                  label: const Text('Set Goal'),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                // Button group: "Add Meal" (+) and "Set Goal"
+                Row(
+                  children: [
+                    // Square '+' Button
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1565C0), // Dark blue
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: IconButton(
+                          onPressed: _navigateToLogNutrition,
+                          icon: const Icon(Icons.add, size: 20),
+                          color: Colors.white,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    // 'Set Goal' Button
+                    OutlinedButton.icon(
+                      onPressed: _showEditGoalDialog,
+                      icon: const Icon(Icons.adjust, size: 16),
+                      label: const Text('Set Goal'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
+            //  MAIN PROGRESS CIRCLE CARD
             _buildCalorieProgressCard(isExceeded),
             const SizedBox(height: 25),
 
+            //  MACRONUTRIENTS ROW CARD
             _buildMacronutrientsCard(),
             const SizedBox(height: 35),
 
+            //  HISTORY SECTION
             const Text(
               "History",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -192,28 +230,17 @@ class _NutritionScreenState extends State<NutritionScreen> {
             const SizedBox(height: 15),
             _buildHistoryList(),
 
-            // --- AICI ESTE NOUL GHENAR CU SFATUL ---
+            //  TIP/ADVICE BOX
             _buildTipBox(),
 
-            const SizedBox(
-              height: 80,
-            ), // Spațiu extra pentru a nu fi acoperit de buton
+            const SizedBox(height: 40), // Bottom padding
           ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToLogNutrition(),
-        backgroundColor: Colors.black,
-        label: const Text(
-          'Log New Day',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  // Widget pentru caseta cu sfat
+  // Widget: Information box with a light blue background
   Widget _buildTipBox() {
     return Container(
       margin: const EdgeInsets.only(top: 25),
@@ -254,6 +281,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
+  // Widget: The large circular progress indicator showing calories
   Widget _buildCalorieProgressCard(bool isExceeded) {
     return Container(
       width: double.infinity,
@@ -278,10 +306,12 @@ class _NutritionScreenState extends State<NutritionScreen> {
                   value: _progressPercentage,
                   strokeWidth: 14,
                   backgroundColor: Colors.grey.shade100,
+                  // Color turns red if goal is exceeded, otherwise blue
                   valueColor: AlwaysStoppedAnimation<Color>(
                     isExceeded ? Colors.redAccent : Colors.blueAccent,
                   ),
                 ),
+                // Text inside the circle
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -302,6 +332,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
             ),
           ),
           const SizedBox(height: 30),
+          // Statistics below the circle (Remaining | Consumed %)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -310,6 +341,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
                 '${_caloriesRemaining.abs()}',
                 isExceeded ? Colors.redAccent : Colors.blueAccent,
               ),
+              // Vertical divider line
               Container(
                 width: 1,
                 height: 40,
@@ -328,6 +360,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
+  // Widget: Displays Proteins, Carbs, and Fats in colored circles
   Widget _buildMacronutrientsCard() {
     final log = _todayLog;
     return Container(
@@ -355,19 +388,19 @@ class _NutritionScreenState extends State<NutritionScreen> {
               _buildMacroCircle(
                 'Proteins',
                 '${log?.totalProteins ?? 0}g',
-                const Color(0xFFFFE5E5),
+                const Color(0xFFFFE5E5), // Light red background
                 Colors.red.shade700,
               ),
               _buildMacroCircle(
                 'Carbs',
                 '${log?.totalCarbs ?? 0}g',
-                const Color(0xFFE5F0FF),
+                const Color(0xFFE5F0FF), // Light blue background
                 Colors.blue.shade700,
               ),
               _buildMacroCircle(
                 'Fats',
                 '${log?.totalFats ?? 0}g',
-                const Color(0xFFFFF9E5),
+                const Color(0xFFFFF9E5), // Light yellow/orange background
                 Colors.orange.shade700,
               ),
             ],
@@ -377,6 +410,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
+  // Helper widget to build individual macronutrient circles
   Widget _buildMacroCircle(
     String label,
     String value,
@@ -412,6 +446,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
+  // Helper widget for the text stats (Remaining/Consumed)
   Widget _buildMiniStat(String label, String value, Color color) {
     return Column(
       children: [
@@ -428,6 +463,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     );
   }
 
+  // Navigation to the detailed day log view
   void _navigateToLogNutrition() async {
     await Navigator.push(
       context,
@@ -435,13 +471,14 @@ class _NutritionScreenState extends State<NutritionScreen> {
         builder: (context) => LogNutritionScreen(userId: widget.userId),
       ),
     );
-    setState(() {}); // Refresh UI
+    setState(() {}); // Refresh UI upon returning
   }
 
+  // Widget: Renders the list of past logged days
   Widget _buildHistoryList() {
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true, // Prevents layout errors inside SingleChildScrollView
+      physics: const NeverScrollableScrollPhysics(), // Scroll handled by parent
       itemCount: _savedLogs.length,
       itemBuilder: (context, index) {
         final log = _savedLogs[index];
@@ -454,7 +491,8 @@ class _NutritionScreenState extends State<NutritionScreen> {
           ),
           child: ListTile(
             title: Text(
-              "${log.date.day}.${log.date.month}.${log.date.year}",
+              // Simple manual date formatting
+              "${log.date.day.toString().padLeft(2, '0')} / ${log.date.month.toString().padLeft(2, '0')} / ${log.date.year}",
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             trailing: Text(
@@ -468,8 +506,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
   }
 }
 
-// --- ECRANELE DE ADAUGARE (LogNutritionScreen & AddMealScreen) ---
-// (Am lăsat restul codului așa cum era în cererea ta pentru a asigura funcționarea listelor)
+//  SCREEN 2: DAILY MEAL LIST LOG
 class LogNutritionScreen extends StatefulWidget {
   final int userId;
   const LogNutritionScreen({super.key, required this.userId});
@@ -485,6 +522,7 @@ class _LogNutritionScreenState extends State<LogNutritionScreen> {
       appBar: AppBar(title: const Text("Log Meals")),
       body: Column(
         children: [
+          // List of meals currently added
           Expanded(
             child: ListView.builder(
               itemCount: _meals.length,
@@ -497,10 +535,12 @@ class _LogNutritionScreenState extends State<LogNutritionScreen> {
               ),
             ),
           ),
+          // Add Meal Button
           Padding(
             padding: const EdgeInsets.all(20),
             child: ElevatedButton(
               onPressed: () async {
+                // Navigate to the form and wait for a MealItem result
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -525,6 +565,7 @@ class _LogNutritionScreenState extends State<LogNutritionScreen> {
   }
 }
 
+//  SCREEN 3: ADD MEAL FORM
 class AddMealScreen extends StatefulWidget {
   const AddMealScreen({super.key});
   @override
@@ -532,11 +573,13 @@ class AddMealScreen extends StatefulWidget {
 }
 
 class _AddMealScreenState extends State<AddMealScreen> {
+  // Text controllers to capture user input
   final _name = TextEditingController();
   final _cal = TextEditingController();
   final _prot = TextEditingController();
   final _carb = TextEditingController();
   final _fat = TextEditingController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -555,6 +598,7 @@ class _AddMealScreenState extends State<AddMealScreen> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 10),
+            // Macronutrients row
             Row(
               children: [
                 Expanded(
@@ -583,9 +627,11 @@ class _AddMealScreenState extends State<AddMealScreen> {
               ],
             ),
             const SizedBox(height: 30),
+            // Save Button
             ElevatedButton(
               onPressed: () => Navigator.pop(
                 context,
+                // Create a MealItem from inputs and pass it back
                 MealItem(
                   name: _name.text,
                   calories: int.tryParse(_cal.text) ?? 0,

@@ -152,14 +152,14 @@ class _NutritionScreenState extends State<NutritionScreen> {
     bool isExceeded = _caloriesRemaining < 0; // Check if user went over goal
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
         title: const Text(
           'Nutrition Log',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
         elevation: 0,
       ),
       body: SingleChildScrollView(

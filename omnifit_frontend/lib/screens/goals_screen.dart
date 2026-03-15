@@ -216,8 +216,8 @@ class _GoalScreenState extends State<GoalScreen> {
           'Weekly Goals',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

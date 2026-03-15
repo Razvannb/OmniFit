@@ -7,7 +7,19 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login OmniFit')),
+      // Set the background color of the screen
+      backgroundColor: const Color(0xFFF8F9FB), 
+      
+      appBar: AppBar(
+        // Apply TextStyle to make the text bold
+        title: const Text(
+          'Login OmniFit',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        elevation: 0, // Remove the shadow under the title for a more modern look
+      ),
+      
       body: Center(
         child: ElevatedButton(
           onPressed: () {

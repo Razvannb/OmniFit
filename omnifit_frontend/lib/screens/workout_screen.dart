@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-final String baseUrl = 'http://127.0.0.1:8080';
+final String baseUrl = 'http://127.0.0.1:8080'; //127.0.0.1
 
 class ExerciseItem {
   final String id;
@@ -20,7 +20,7 @@ class ExerciseItem {
 }
 
 class WorkoutItem {
-  final String id;
+  String? id;
   String name;
   DateTime date;
   List<ExerciseItem> exercises;
@@ -28,12 +28,15 @@ class WorkoutItem {
   double rpe;
 
   WorkoutItem({
+    this.id,
     required this.name,
     required this.date,
     required this.exercises,
     required this.globalRestTime,
     required this.rpe,
-  }) : id = UniqueKey().toString();
+  }) {
+    id ??= UniqueKey().toString();
+  }
 }
 
 class WorkoutScreen extends StatefulWidget {
@@ -62,14 +65,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         List<dynamic> data = jsonDecode(response.body);
 
         List<WorkoutItem> fetchedWorkouts = data.map<WorkoutItem>((item) {
+          var exercisesJson = item['exercises'] as List? ?? [];
+          List<ExerciseItem> parsedExercises = exercisesJson.map((ex) {
+            return ExerciseItem(
+              name: ex['exerciseName'] ?? '',
+              muscleGroup: ex['muscleGroup'] ?? '',
+              reps: (ex['reps'] ?? '').split(
+                ',',
+              ), // we make the string of reps back into a list by splitting on commas
+              restBetweenExercise: ex['recoveryExercise']?.toString() ?? '30',
+            );
+          }).toList();
           return WorkoutItem(
+            id: item['id'].toString(),
             name: item['workoutName'] ?? 'Antrenament Necunoscut',
             date: item['date'] != null
                 ? DateTime.parse(item['date'])
                 : DateTime.now(),
             globalRestTime: item['globalRestTime']?.toString() ?? '60',
             rpe: (item['rpe'] ?? 5.0).toDouble(),
-            exercises: <ExerciseItem>[],
+            exercises:
+                parsedExercises, // we assign the parsed exercises list to the workout item
           );
         }).toList();
 
@@ -200,10 +216,27 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                             Icons.delete,
                                             color: Colors.redAccent,
                                           ),
-                                          onPressed: () {
+                                          onPressed: () async {
+                                            final workoutId = workout.id;
+
+                                            // we delete the workout from the UI
                                             setState(() {
                                               _savedWorkouts.removeAt(index);
                                             });
+
+                                            // we send a delete request to the server to remove the workout from the database, but only if the workout has a valid ID (not a temporary one)
+                                            if (workoutId != null &&
+                                                !workoutId.contains('#')) {
+                                              try {
+                                                await http.delete(
+                                                  Uri.parse(
+                                                    '$baseUrl/api/delete-workout?id=$workoutId',
+                                                  ),
+                                                );
+                                              } catch (e) {
+                                                print("Error on delete: $e");
+                                              }
+                                            }
                                           },
                                         ),
                                       ],
@@ -377,6 +410,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
         .toList();
 
     Map<String, dynamic> workoutData = {
+      "id": workout.id,
       "user_id": 1,
       "workoutName": workout.name,
       "date": workout.date.toIso8601String(),

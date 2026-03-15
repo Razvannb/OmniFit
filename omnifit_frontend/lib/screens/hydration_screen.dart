@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class HydrationScreen extends StatefulWidget {
-  // The constructor 
-  // [super.key] uniquely identifies this widget in the widget tree for efficient rendering 
+  // The constructor
+  // [super.key] uniquely identifies this widget in the widget tree for efficient rendering
   const HydrationScreen({super.key});
 
   // Creates the mutable state for this screen, which will hold the current water intake, daily goal, history of intake, and reminder status
@@ -20,16 +20,18 @@ class _HydrationScreenState extends State<HydrationScreen> {
     setState(() {
       int previousIntake = currentIntake;
       currentIntake += amount;
-      
+
       if (currentIntake < 0) currentIntake = 0;
 
       // Add to history only if the value changed
       if (currentIntake != previousIntake) {
-        final now = TimeOfDay.now(); // The current time is captured to log when the water intake was updated
-        final timeString = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-        
+        final now =
+            TimeOfDay.now(); // The current time is captured to log when the water intake was updated
+        final timeString =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
         String logAmount = amount > 0 ? '+$amount ml' : '$amount ml';
-        
+
         // Insert at index 0 to keep the most recent logs at the top
         history.insert(0, {'amount': logAmount, 'time': timeString});
       }
@@ -38,13 +40,17 @@ class _HydrationScreenState extends State<HydrationScreen> {
 
   // Show popup to set the daily goal
   void _showSetGoalDialog() {
-    final TextEditingController goalController = TextEditingController(text: dailyGoal.toString());
-    
+    final TextEditingController goalController = TextEditingController(
+      text: dailyGoal.toString(),
+    );
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Text('Setează Scopul Zilnic'),
           content: TextField(
             controller: goalController,
@@ -57,7 +63,10 @@ class _HydrationScreenState extends State<HydrationScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Anulează', style: TextStyle(color: Colors.grey)),
+              child: const Text(
+                'Anulează',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -69,7 +78,9 @@ class _HydrationScreenState extends State<HydrationScreen> {
                 }
                 Navigator.pop(context);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.lightBlue),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.lightBlue,
+              ),
               child: const Text('Salvează'),
             ),
           ],
@@ -87,7 +98,10 @@ class _HydrationScreenState extends State<HydrationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('Log Hydration', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Log Hydration',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -95,7 +109,13 @@ class _HydrationScreenState extends State<HydrationScreen> {
           TextButton.icon(
             onPressed: _showSetGoalDialog,
             icon: const Icon(Icons.edit, size: 18, color: Colors.lightBlue),
-            label: const Text('Setează Scop', style: TextStyle(color: Colors.lightBlue, fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Setează Scop',
+              style: TextStyle(
+                color: Colors.lightBlue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -116,21 +136,34 @@ class _HydrationScreenState extends State<HydrationScreen> {
                       value: progress,
                       strokeWidth: 16,
                       backgroundColor: Colors.lightBlue.withOpacity(0.2),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.lightBlue),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.lightBlue,
+                      ),
                     ),
                     Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.water_drop, color: Colors.lightBlue.shade300, size: 40),
+                          Icon(
+                            Icons.water_drop,
+                            color: Colors.lightBlue.shade300,
+                            size: 40,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             '$currentIntake',
-                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                           Text(
                             '/ $dailyGoal ml',
-                            style: const TextStyle(fontSize: 16, color: Colors.black54),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.black54,
+                            ),
                           ),
                         ],
                       ),
@@ -145,30 +178,52 @@ class _HydrationScreenState extends State<HydrationScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildWaterButton('-250 ml', () => _updateWater(-250), Colors.redAccent.withOpacity(0.8)),
-                _buildWaterButton('+250 ml', () => _updateWater(250), Colors.lightBlue),
+                _buildWaterButton(
+                  '-250 ml',
+                  () => _updateWater(-250),
+                  Colors.redAccent.withOpacity(0.8),
+                ),
+                _buildWaterButton(
+                  '+250 ml',
+                  () => _updateWater(250),
+                  Colors.lightBlue,
+                ),
               ],
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildWaterButton('+500 ml', () => _updateWater(500), Colors.blue),
-                _buildWaterButton('+1000 ml', () => _updateWater(1000), Colors.blue.shade700),
+                _buildWaterButton(
+                  '+500 ml',
+                  () => _updateWater(500),
+                  Colors.blue,
+                ),
+                _buildWaterButton(
+                  '+1000 ml',
+                  () => _updateWater(1000),
+                  Colors.blue.shade700,
+                ),
               ],
             ),
-            
+
             const SizedBox(height: 40),
             const Divider(),
 
             // --- ISTORIC ---
             Align(
               alignment: Alignment.centerLeft,
-              child: const Text('Istoric Azi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Istoric Azi',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
             const SizedBox(height: 16),
             if (history.isEmpty)
-              const Text('Încă nu ai băut apă astăzi.', style: TextStyle(color: Colors.black54))
+              const Text(
+                'Încă nu ai băut apă astăzi.',
+                style: TextStyle(color: Colors.black54),
+              )
             else
               ListView.builder(
                 shrinkWrap: true,
@@ -179,11 +234,19 @@ class _HydrationScreenState extends State<HydrationScreen> {
                   final isPositive = item['amount']!.startsWith('+');
                   return ListTile(
                     leading: Icon(
-                      isPositive ? Icons.water_drop : Icons.remove_circle_outline,
+                      isPositive
+                          ? Icons.water_drop
+                          : Icons.remove_circle_outline,
                       color: isPositive ? Colors.lightBlue : Colors.redAccent,
                     ),
-                    title: Text(item['amount']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: Text(item['time']!, style: const TextStyle(color: Colors.black54)),
+                    title: Text(
+                      item['amount']!,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    trailing: Text(
+                      item['time']!,
+                      style: const TextStyle(color: Colors.black54),
+                    ),
                     contentPadding: EdgeInsets.zero,
                   );
                 },
@@ -195,10 +258,13 @@ class _HydrationScreenState extends State<HydrationScreen> {
             // --- MEMENTO (Reminder) ---
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Memento', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              title: const Text(
+                'Memento',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               subtitle: const Text('Amintește-mi să beau apă la fiecare oră.'),
               value: isReminderOn,
-              activeColor: Colors.lightBlue,
+              activeThumbColor: Colors.lightBlue,
               onChanged: (bool value) {
                 setState(() {
                   isReminderOn = value;
@@ -221,7 +287,14 @@ class _HydrationScreenState extends State<HydrationScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 2,
       ),
-      child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 }

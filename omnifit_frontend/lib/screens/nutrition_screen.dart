@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 // --- DATA MODELS ---
 class MealItem {
@@ -480,7 +478,7 @@ class LogNutritionScreen extends StatefulWidget {
 }
 
 class _LogNutritionScreenState extends State<LogNutritionScreen> {
-  List<MealItem> _meals = [];
+  final List<MealItem> _meals = [];
   @override
   Widget build(BuildContext context) {
     return Scaffold(

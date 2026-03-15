@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Base URL for API requests (Localhost pointing to backend)
+final String baseUrl = 'http://127.0.0.1:8080';
 
 //  MAIN SCREEN
 class HydrationScreen extends StatefulWidget {
+  final int userId;
+
   // The constructor
   // [super.key] uniquely identifies this widget in the widget tree for efficient rendering
-  const HydrationScreen({super.key});
+  // Added userId with a default value of 1 so it doesn't break navigation from Dashboard
+  const HydrationScreen({super.key, this.userId = 1});
 
   // Creates the mutable state for this screen, which will hold the current water intake, daily goal, history of intake, and reminder status
   @override
@@ -19,31 +27,115 @@ class _HydrationScreenState extends State<HydrationScreen> {
       []; // List to store the log of water intake (amount and time)
   bool isReminderOn = false; // Toggle state for hydration reminders
 
-  // Method to update the water intake and log the entry
-  void _updateWater(int amount) {
-    setState(() {
-      int previousIntake = currentIntake;
-      currentIntake += amount;
+  @override
+  void initState() {
+    super.initState();
+    fetchHydrationData(); // Load data from backend when screen initializes
+  }
 
-      // Prevent the intake from dropping below zero
-      if (currentIntake < 0) currentIntake = 0;
+  // Fetch data from backend
+  Future<void> fetchHydrationData() async {
+    try {
+      // 1. Fetch Hydration Goal
+      final goalRes = await http.get(
+        Uri.parse('$baseUrl/api/hydration-goal?user_id=${widget.userId}'),
+      );
+      if (goalRes.statusCode == 200) {
+        final goalData = json.decode(goalRes.body);
+        if (mounted) {
+          setState(() {
+            dailyGoal = goalData['daily_water_goal'] ?? 2500;
+          });
+        }
+      }
 
-      // Add to history only if the value actually changed
-      if (currentIntake != previousIntake) {
+      // 2. Fetch Hydration Logs for Today
+      final logRes = await http.get(
+        Uri.parse('$baseUrl/api/hydration?user_id=${widget.userId}'),
+      );
+      if (logRes.statusCode == 200) {
+        List<dynamic> data = json.decode(logRes.body);
+
+        int calculatedIntake = 0;
+        List<Map<String, String>> loadedHistory = [];
+        final now = DateTime.now();
+
+        for (var item in data) {
+          DateTime logDate = DateTime.parse(item['date']).toLocal();
+
+          // Check if the log belongs to today
+          if (logDate.year == now.year &&
+              logDate.month == now.month &&
+              logDate.day == now.day) {
+            int amount = item['amount'] as int;
+            calculatedIntake += amount;
+
+            // Format strings for UI
+            String timeString =
+                '${logDate.hour.toString().padLeft(2, '0')}:${logDate.minute.toString().padLeft(2, '0')}';
+            String logAmount = amount > 0 ? '+$amount ml' : '$amount ml';
+
+            loadedHistory.add({'amount': logAmount, 'time': timeString});
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            currentIntake = calculatedIntake < 0 ? 0 : calculatedIntake;
+            history = loadedHistory;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching hydration data: $e");
+    }
+  }
+
+  // Method to update the water intake and log the entry in backend
+  Future<void> _updateWater(int amount) async {
+    int actualAmountToAdd = amount;
+    int expectedIntake = currentIntake + amount;
+
+    // Prevent the intake from dropping below zero locally and on backend
+    if (expectedIntake < 0) {
+      actualAmountToAdd = -currentIntake; // Subtract only what is left
+    }
+
+    if (actualAmountToAdd != 0) {
+      // 1. Update UI Optimistically
+      setState(() {
+        currentIntake += actualAmountToAdd;
         final now =
-            TimeOfDay.now(); // The current time is captured to log when the water intake was updated
+            DateTime.now(); // The current time is captured to log when the water intake was updated
 
         // Format the time as HH:MM (e.g., 08:05)
         final timeString =
             '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
         // Format the amount string (e.g., "+250 ml" or "-250 ml")
-        String logAmount = amount > 0 ? '+$amount ml' : '$amount ml';
+        String logAmount = actualAmountToAdd > 0
+            ? '+$actualAmountToAdd ml'
+            : '$actualAmountToAdd ml';
 
         // Insert at index 0 to keep the most recent logs at the top of the list
         history.insert(0, {'amount': logAmount, 'time': timeString});
+      });
+
+      // 2. POST to Backend
+      try {
+        await http.post(
+          Uri.parse('$baseUrl/api/hydration'),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "user_id": widget.userId,
+            "amount": actualAmountToAdd,
+            "date": DateTime.now().toIso8601String(),
+          }),
+        );
+      } catch (e) {
+        print("Error saving water log: $e");
       }
-    });
+    }
   }
 
   // Show a dialog popup allowing the user to change their daily water goal
@@ -83,15 +175,32 @@ class _HydrationScreenState extends State<HydrationScreen> {
             ),
             // Save Button
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final newGoal = int.tryParse(goalController.text);
+
+                // Pop the dialog immediately for better UX
+                Navigator.pop(context);
+
                 // Validate input and update goal if valid
                 if (newGoal != null && newGoal > 0) {
                   setState(() {
                     dailyGoal = newGoal;
                   });
+
+                  // POST Goal to Backend
+                  try {
+                    await http.post(
+                      Uri.parse('$baseUrl/api/hydration-goal'),
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        "user_id": widget.userId,
+                        "daily_water_goal": newGoal,
+                      }),
+                    );
+                  } catch (e) {
+                    print("Error saving hydration goal: $e");
+                  }
                 }
-                Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.lightBlue,
@@ -115,7 +224,7 @@ class _HydrationScreenState extends State<HydrationScreen> {
   @override
   Widget build(BuildContext context) {
     // Calculate the progress ratio (between 0.0 and 1.0) for the circular indicator
-    double progress = currentIntake / dailyGoal;
+    double progress = dailyGoal == 0 ? 0 : currentIntake / dailyGoal;
     if (progress > 1.0) progress = 1.0; // Cap the visual progress at 100%
 
     return Scaffold(
@@ -141,7 +250,7 @@ class _HydrationScreenState extends State<HydrationScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Hidratation', // Note: Typo in your original code, usually spelled "Hydration"
+                  'Hydration', // Fixed typo
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
                 ),
                 // Button group: Quick Add (+) and Set Goal

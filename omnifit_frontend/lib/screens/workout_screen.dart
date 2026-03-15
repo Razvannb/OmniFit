@@ -53,9 +53,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> fetchWorkoutData() async {
-    final url = Uri.parse(
-      '$baseUrl/api/get-workout?user_id=1',
-    );
+    final url = Uri.parse('$baseUrl/api/get-workout?user_id=1');
 
     try {
       final response = await http.get(url);

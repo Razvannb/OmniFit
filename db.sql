@@ -80,11 +80,18 @@ CREATE TABLE IF NOT EXISTS HydrationGoals (
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE MeditationLog(
+CREATE TABLE IF NOT EXISTS MeditationLog (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    duration_minutes INT NOT NULL, 
-    date_logged DATE DEFAULT (CURRENT_DATE),
+    minutes INT NOT NULL,
+    date_logged DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS MeditationGoals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    daily_minutes_goal INT NOT NULL DEFAULT 30,
     FOREIGN KEY (user_id) REFERENCES Users(id) ON DELETE CASCADE
 );
 

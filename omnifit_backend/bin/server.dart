@@ -23,8 +23,11 @@ void main(List<String> args) async {
     ..post('/api/hydration', _saveHydrationHandler)
     ..get('/api/hydration', _getHydrationHandler)
     ..post('/api/hydration-goal', _saveHydrationGoalHandler)
-    ..get('/api/hydration-goal', _getHydrationGoalHandler);
-    
+    ..get('/api/hydration-goal', _getHydrationGoalHandler)
+    ..post('/api/meditation', _saveMeditationHandler)
+    ..get('/api/meditation', _getMeditationHandler)
+    ..post('/api/meditation-goal', _saveMeditationGoalHandler)
+    ..get('/api/meditation-goal', _getMeditationGoalHandler);
 
   // IP and port configuration
   final ip = InternetAddress.anyIPv4;
@@ -522,6 +525,7 @@ Future<Response> _getNutritionGoalHandler(Request req) async {
     );
   }
 }
+
 // --- HANDLER SALVARE HIDRATARE (POST) ---
 Future<Response> _saveHydrationHandler(Request req) async {
   try {
@@ -535,13 +539,15 @@ Future<Response> _saveHydrationHandler(Request req) async {
 
     await conn.query(
       'INSERT INTO HydrationLog (user_id, amount, date_logged) VALUES (?, ?, ?)',
-      [userId, amount, DateTime.parse(date).toUtc()]
+      [userId, amount, DateTime.parse(date).toUtc()],
     );
 
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving hydration: $e");
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 
@@ -553,7 +559,7 @@ Future<Response> _getHydrationHandler(Request req) async {
 
     var logs = await conn.query(
       'SELECT amount, date_logged FROM HydrationLog WHERE user_id = ? ORDER BY date_logged DESC',
-      [userId]
+      [userId],
     );
 
     List<Map<String, dynamic>> results = [];
@@ -563,10 +569,15 @@ Future<Response> _getHydrationHandler(Request req) async {
         'date': (row['date_logged'] as DateTime).toIso8601String(),
       });
     }
-    return Response.ok(json.encode(results), headers: {'Content-Type': 'application/json'});
+    return Response.ok(
+      json.encode(results),
+      headers: {'Content-Type': 'application/json'},
+    );
   } catch (e) {
     print("Error getting hydration: $e");
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 
@@ -580,17 +591,28 @@ Future<Response> _saveHydrationGoalHandler(Request req) async {
     final userId = data['user_id'] ?? 1;
     final goal = data['daily_water_goal'] ?? 2500;
 
-    var existing = await conn.query('SELECT id FROM HydrationGoals WHERE user_id = ?', [userId]);
+    var existing = await conn.query(
+      'SELECT id FROM HydrationGoals WHERE user_id = ?',
+      [userId],
+    );
 
     if (existing.isNotEmpty) {
-      await conn.query('UPDATE HydrationGoals SET daily_water_goal = ? WHERE user_id = ?', [goal, userId]);
+      await conn.query(
+        'UPDATE HydrationGoals SET daily_water_goal = ? WHERE user_id = ?',
+        [goal, userId],
+      );
     } else {
-      await conn.query('INSERT INTO HydrationGoals (user_id, daily_water_goal) VALUES (?, ?)', [userId, goal]);
+      await conn.query(
+        'INSERT INTO HydrationGoals (user_id, daily_water_goal) VALUES (?, ?)',
+        [userId, goal],
+      );
     }
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
     print("Error saving hydration goal: $e");
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 
@@ -600,15 +622,140 @@ Future<Response> _getHydrationGoalHandler(Request req) async {
     final conn = await Database.connect();
     final userId = req.url.queryParameters['user_id'] ?? '1';
 
-    var result = await conn.query('SELECT daily_water_goal FROM HydrationGoals WHERE user_id = ?', [userId]);
+    var result = await conn.query(
+      'SELECT daily_water_goal FROM HydrationGoals WHERE user_id = ?',
+      [userId],
+    );
 
     int goal = 2500; // Default
     if (result.isNotEmpty) {
       goal = int.parse(result.first['daily_water_goal'].toString());
     }
-    return Response.ok(json.encode({'daily_water_goal': goal}), headers: {'Content-Type': 'application/json'});
+    return Response.ok(
+      json.encode({'daily_water_goal': goal}),
+      headers: {'Content-Type': 'application/json'},
+    );
   } catch (e) {
     print("Error getting hydration goal: $e");
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER SALVARE MEDITAȚIE (POST) ---
+Future<Response> _saveMeditationHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final minutes = data['minutes'] ?? 0;
+    final date = data['date'] ?? DateTime.now().toIso8601String();
+
+    await conn.query(
+      'INSERT INTO MeditationLog (user_id, minutes, date_logged) VALUES (?, ?, ?)',
+      [userId, minutes, DateTime.parse(date).toUtc()],
+    );
+
+    return Response.ok(json.encode({'status': 'success'}));
+  } catch (e) {
+    print("Error saving meditation: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER EXTRAGERE MEDITAȚIE (GET) ---
+Future<Response> _getMeditationHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+
+    var logs = await conn.query(
+      'SELECT minutes, date_logged FROM MeditationLog WHERE user_id = ? ORDER BY date_logged DESC',
+      [userId],
+    );
+
+    List<Map<String, dynamic>> results = [];
+    for (var row in logs) {
+      results.add({
+        'minutes': row['minutes'],
+        'date': (row['date_logged'] as DateTime).toIso8601String(),
+      });
+    }
+    return Response.ok(
+      json.encode(results),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    print("Error getting meditation: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER SALVARE GOAL MEDITAȚIE (POST) ---
+Future<Response> _saveMeditationGoalHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final goal = data['daily_minutes_goal'] ?? 30;
+
+    var existing = await conn.query(
+      'SELECT id FROM MeditationGoals WHERE user_id = ?',
+      [userId],
+    );
+
+    if (existing.isNotEmpty) {
+      await conn.query(
+        'UPDATE MeditationGoals SET daily_minutes_goal = ? WHERE user_id = ?',
+        [goal, userId],
+      );
+    } else {
+      await conn.query(
+        'INSERT INTO MeditationGoals (user_id, daily_minutes_goal) VALUES (?, ?)',
+        [userId, goal],
+      );
+    }
+    return Response.ok(json.encode({'status': 'success'}));
+  } catch (e) {
+    print("Error saving meditation goal: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER EXTRAGERE GOAL MEDITAȚIE (GET) ---
+Future<Response> _getMeditationGoalHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+
+    var result = await conn.query(
+      'SELECT daily_minutes_goal FROM MeditationGoals WHERE user_id = ?',
+      [userId],
+    );
+
+    int goal = 30; // Default
+    if (result.isNotEmpty) {
+      goal = int.parse(result.first['daily_minutes_goal'].toString());
+    }
+    return Response.ok(
+      json.encode({'daily_minutes_goal': goal}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    print("Error getting meditation goal: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }

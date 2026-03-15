@@ -5,18 +5,15 @@ import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:omnifit_backend/db/database.dart';
 
-void main(List<String> args) async {   // Router Configuration
+void main(List<String> args) async {
+  // Router Configuration
   final router = Router()
     ..get('/', _rootHandler)
     ..post('/api/save-workout', _saveWorkoutHandler)
     ..get('/api/get-workout', _getWorkoutHandler)
-    ..delete(
-      '/api/delete-workout',
-      _deleteWorkoutHandler,
-    )
+    ..delete('/api/delete-workout', _deleteWorkoutHandler)
     ..post('/api/auth/login', _placeholderHandler)
     ..post('/api/hydration', _placeholderHandler)
-    ..post('/api/nutrition', _placeholderHandler)
     ..post('/api/goals', _saveGoalHandler)
     ..get('/api/goals', _getGoalsHandler)
     ..get('/api/dashboard', _getDashboardHandler);
@@ -202,56 +199,81 @@ Future<Response> _saveGoalHandler(Request req) async {
     final targetSets = data['targetSets'];
 
     // Checking if an objective already exists
-    var existing = await conn.query('SELECT id FROM Goals WHERE user_id = ? AND muscle_group = ?', [userId, muscleGroup]);
-    
+    var existing = await conn.query(
+      'SELECT id FROM Goals WHERE user_id = ? AND muscle_group = ?',
+      [userId, muscleGroup],
+    );
+
     if (existing.isNotEmpty) {
-      await conn.query('UPDATE Goals SET target_sets = ? WHERE id = ?', [targetSets, existing.first['id']]);
+      await conn.query('UPDATE Goals SET target_sets = ? WHERE id = ?', [
+        targetSets,
+        existing.first['id'],
+      ]);
     } else {
-      await conn.query('INSERT INTO Goals (user_id, muscle_group, target_sets) VALUES (?, ?, ?)', [userId, muscleGroup, targetSets]);
+      await conn.query(
+        'INSERT INTO Goals (user_id, muscle_group, target_sets) VALUES (?, ?, ?)',
+        [userId, muscleGroup, targetSets],
+      );
     }
 
     return Response.ok(json.encode({'status': 'success'}));
   } catch (e) {
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 
-// Handler for extracting objectives
+// --- HANDLER EXTRAGERE OBIECTIVE + CALCULARE PROGRES (GET) ---
 Future<Response> _getGoalsHandler(Request req) async {
   try {
     final conn = await Database.connect();
-    final userId = req.url.queryParameters['user_id'] ?? '1';
-    
-    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
+    // Ne asigurăm că user_id e corect convertit în INT pentru MySQL
+    final userId = int.tryParse(req.url.queryParameters['user_id'] ?? '1') ?? 1;
+
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [
+      userId,
+    ]);
     List<Map<String, dynamic>> finalGoals = [];
 
     for (var g in goals) {
-      String muscle = g['muscle_group'];
-      int target = g['target_sets'];
+      String muscle = g['muscle_group'].toString();
+      int target = int.tryParse(g['target_sets'].toString()) ?? 0;
 
-      // Magia: Căutăm în ultimele 7 zile câte seturi a făcut REA pentru grupa asta musculară
-      var progressQuery = await conn.query('''
+      var progressQuery = await conn.query(
+        '''
         SELECT SUM(s.setsCount) as total 
         FROM Sets s 
         JOIN Workouts w ON s.workoutID = w.id 
         WHERE w.user_id = ? AND s.muscleGroup = ? AND w.date_created >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      ''', [userId, muscle]);
+      ''',
+        [userId, muscle],
+      );
 
       int currentSets = 0;
       if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
-        currentSets = int.parse(progressQuery.first['total'].toString());
+        // AICI ERA PROBLEMA: SUM-ul vine cu zecimale de la MySQL (ex: 4.0)
+        currentSets = double.parse(
+          progressQuery.first['total'].toString(),
+        ).toInt();
       }
 
       finalGoals.add({
-        'id': g['id'],
+        'id': g['id'].toString(),
         'muscleGroup': muscle,
         'targetSets': target,
-        'currentSets': currentSets
+        'currentSets': currentSets,
       });
     }
-    return Response.ok(json.encode(finalGoals), headers: {'Content-Type': 'application/json'});
+    return Response.ok(
+      json.encode(finalGoals),
+      headers: {'Content-Type': 'application/json'},
+    );
   } catch (e) {
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    print("Eroare la GET Goals: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 
@@ -259,47 +281,68 @@ Future<Response> _getGoalsHandler(Request req) async {
 Future<Response> _getDashboardHandler(Request req) async {
   try {
     final conn = await Database.connect();
-    final userId = req.url.queryParameters['user_id'] ?? '1';
+    final userId = int.tryParse(req.url.queryParameters['user_id'] ?? '1') ?? 1;
 
-    // 1. Calculăm RPE-ul mediu din ultimele 3 antrenamente
-    var rpeQuery = await conn.query('''
+    var rpeQuery = await conn.query(
+      '''
       SELECT AVG(rpe) as avg_rpe FROM (SELECT rpe FROM Workouts WHERE user_id = ? ORDER BY date_created DESC LIMIT 3) as sub
-    ''', [userId]);
+    ''',
+      [userId],
+    );
 
     double avgRpe = 5.0;
     if (rpeQuery.isNotEmpty && rpeQuery.first['avg_rpe'] != null) {
       avgRpe = double.parse(rpeQuery.first['avg_rpe'].toString());
     }
 
-    // 2. Găsim o grupă musculară care a rămas în urmă față de obiectiv
-    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [userId]);
+    var goals = await conn.query('SELECT * FROM Goals WHERE user_id = ?', [
+      userId,
+    ]);
     String laggingMuscle = "";
 
     for (var g in goals) {
-      String muscle = g['muscle_group'];
-      int target = g['target_sets'];
-      var progressQuery = await conn.query('SELECT SUM(s.setsCount) as total FROM Sets s JOIN Workouts w ON s.workoutID = w.id WHERE w.user_id = ? AND s.muscleGroup = ? AND w.date_created >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)', [userId, muscle]);
-      int currentSets = (progressQuery.isNotEmpty && progressQuery.first['total'] != null) ? int.parse(progressQuery.first['total'].toString()) : 0;
+      String muscle = g['muscle_group'].toString();
+      int target = int.tryParse(g['target_sets'].toString()) ?? 0;
+
+      var progressQuery = await conn.query(
+        'SELECT SUM(s.setsCount) as total FROM Sets s JOIN Workouts w ON s.workoutID = w.id WHERE w.user_id = ? AND s.muscleGroup = ? AND w.date_created >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)',
+        [userId, muscle],
+      );
+
+      int currentSets = 0;
+      if (progressQuery.isNotEmpty && progressQuery.first['total'] != null) {
+        currentSets = double.parse(
+          progressQuery.first['total'].toString(),
+        ).toInt();
+      }
 
       if (currentSets < target) {
         laggingMuscle = muscle;
-        break; // Am găsit grupa musculară pe care trebuie să o lucreze
+        break;
       }
     }
 
-    // 3. Generăm textul inteligent
     String recommendation = "";
     if (avgRpe >= 8.0) {
-      recommendation = "Atenție! Ai avut antrenamente foarte intense recent (RPE mediu: ${avgRpe.toStringAsFixed(1)}/10). Îți recomandăm o zi de recuperare activă, stretching sau yoga azi!";
+      recommendation =
+          "Atenție! Ai avut antrenamente foarte intense recent (RPE mediu: ${avgRpe.toStringAsFixed(1)}/10). Îți recomandăm o zi de recuperare activă, stretching sau yoga azi!";
     } else if (laggingMuscle.isNotEmpty) {
-      recommendation = "Te simți bine (RPE: ${avgRpe.toStringAsFixed(1)}/10). Astăzi ar fi ideal să faci un antrenament pentru '$laggingMuscle' pentru a-ți atinge obiectivul săptămânal de seturi!";
+      recommendation =
+          "Te simți bine (RPE: ${avgRpe.toStringAsFixed(1)}/10). Astăzi ar fi ideal să faci un antrenament pentru '$laggingMuscle' pentru a-ți atinge obiectivul săptămânal de seturi!";
     } else {
-      recommendation = "Ești un campion! RPE-ul e optim și ai atins deja toate obiectivele săptămânale de volum. Poți face orice antrenament dorești azi!";
+      recommendation =
+          "Ești un campion! RPE-ul e optim și ai atins deja toate obiectivele săptămânale de volum. Poți face orice antrenament dorești azi!";
     }
 
-    return Response.ok(json.encode({'recommendation': recommendation}), headers: {'Content-Type': 'application/json'});
+    return Response.ok(
+      json.encode({'recommendation': recommendation}),
+      headers: {'Content-Type': 'application/json'},
+    );
   } catch (e) {
-    return Response.internalServerError(body: json.encode({'error': e.toString()}));
+    print("Eroare la Dashboard: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
   }
 }
 

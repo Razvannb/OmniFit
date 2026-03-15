@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
+
+final String baseUrl = 'http://127.0.0.1:8080';
 
 // --- DATA MODEL FOR WEEKLY SETS ---
 class WeeklySetGoal {
   final String id;
   String muscleGroup;
-  int targetSets; // Obiectivul (dreapta)
-  int completedSets; // Realizat (stânga - modificabil)
+  int targetSets;
+  int completedSets;
 
   WeeklySetGoal({
     String? id,
@@ -36,17 +39,41 @@ class _GoalScreenState extends State<GoalScreen> {
   final List<WeeklySetGoal> _goals = [];
   bool _isLoading = false;
 
-  // Culoarea pentru Progress Card (Movul de mai devreme)
-  static const Color primaryGoalColor = Color.fromARGB(255, 167, 151, 251);
+  static const Color primaryGoalColor = Color.fromARGB(255, 60, 140, 231);
+  static const Color addBtnColor = Color(0xFF1565C0);
+  static const Color saveBtnColor = Color(0xFF4CAF50);
 
-  // Noile culori cerute:
-  static const Color addBtnColor = Color(0xFF1565C0); // Albastru închis
-  static const Color saveBtnColor = Color(0xFF4CAF50); // Verde drăguț
+  bool _showTip = true; // controlls if the tip box is visible
+  Timer? _tipTimer; // timer to auto-hide the tip after a few seconds
+
+  final List<String> _muscleGroups = [
+    'Chest',
+    'Back',
+    'Legs',
+    'Shoulders',
+    'Biceps',
+    'Triceps',
+    'Core',
+  ];
 
   @override
   void initState() {
     super.initState();
     fetchGoalsData();
+    // hide the tip box after 5 seconds
+    _tipTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() {
+          _showTip = false;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tipTimer?.cancel();
+    super.dispose();
   }
 
   double get _calculateProgress {
@@ -68,16 +95,13 @@ class _GoalScreenState extends State<GoalScreen> {
 
   Future<void> fetchGoalsData() async {
     setState(() => _isLoading = true);
-    final url = Uri.parse(
-      'http://10.0.2.2:8080/api/get-set-goals?user_id=${widget.userId}',
-    );
+    final url = Uri.parse('$baseUrl/api/goals?user_id=${widget.userId}');
 
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 3));
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
 
-        // Verificăm 'mounted' înainte de setState!
         if (mounted) {
           setState(() {
             _goals.clear();
@@ -85,9 +109,10 @@ class _GoalScreenState extends State<GoalScreen> {
               data.map(
                 (item) => WeeklySetGoal(
                   id: item['id']?.toString(),
-                  muscleGroup: item['muscle_group'] ?? 'Unknown',
-                  targetSets: item['target_sets'] ?? 0,
-                  completedSets: item['completed_sets'] ?? 0,
+                  muscleGroup: item['muscleGroup']?.toString() ?? 'Unknown',
+                  targetSets: int.tryParse(item['targetSets'].toString()) ?? 0,
+                  completedSets:
+                      int.tryParse(item['currentSets'].toString()) ?? 0,
                 ),
               ),
             );
@@ -95,113 +120,155 @@ class _GoalScreenState extends State<GoalScreen> {
         }
       }
     } catch (e) {
-      // --- AICI AM PUS if (mounted) PENTRU A REZOLVA EROAREA TA ---
-      if (mounted) {
-        setState(() {
-          if (_goals.isEmpty) {
-            _goals.addAll([
-              WeeklySetGoal(
-                muscleGroup: 'Chest',
-                targetSets: 12,
-                completedSets: 5,
-              ),
-              WeeklySetGoal(
-                muscleGroup: 'Back',
-                targetSets: 14,
-                completedSets: 14,
-              ),
-            ]);
-          }
-        });
-      }
+      print("Eroare la preluarea obiectivelor: $e");
     } finally {
-      // --- LA FEL ȘI AICI ---
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveAllGoals() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Goals have been saved successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
+    try {
+      for (var goal in _goals) {
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/goals'),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "user_id": widget.userId,
+            "muscleGroup": goal.muscleGroup,
+            "targetSets": goal.targetSets,
+          }),
+        );
+        print(
+          "Save Goal Response pt ${goal.muscleGroup}: ${response.statusCode} | ${response.body}",
+        );
+      }
+
+      await fetchGoalsData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Goals have been saved successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      print("Eroare la salvarea obiectivelor: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showAddGoalDialog() {
-    final muscleController = TextEditingController();
+    // Setăm prima valoare din listă ca fiind cea selectată default
+    String? selectedMuscle = _muscleGroups.first;
     final targetController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Add Weekly Goal',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: muscleController,
-                decoration: const InputDecoration(
-                  labelText: 'Muscle Group (e.g. Legs)',
-                  border: OutlineInputBorder(),
+        // Folosim StatefulBuilder ca să putem face setState DOAR în interiorul dialogului
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'Add Weekly Goal',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // --- AICI ESTE NOUL DROPDOWN PENTRU GRUPE MUSCULARE ---
+                  DropdownButtonFormField<String>(
+                    value: selectedMuscle,
+                    decoration: const InputDecoration(
+                      labelText: 'Muscle Group',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _muscleGroups.map((String muscle) {
+                      return DropdownMenuItem<String>(
+                        value: muscle,
+                        child: Text(muscle),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      // Actualizăm starea dialogului când alegem o altă grupă
+                      setStateDialog(() {
+                        selectedMuscle = newValue;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: targetController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Sets per Week',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 15),
-              TextField(
-                controller: targetController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Target Sets per Week',
-                  border: OutlineInputBorder(),
+                ElevatedButton(
+                  onPressed: () {
+                    // Verificăm dacă a selectat ceva și dacă a introdus target-ul
+                    if (selectedMuscle != null &&
+                        targetController.text.isNotEmpty) {
+                      // Opțional: Verificăm dacă nu cumva există deja un goal pentru grupa asta
+                      bool goalExists = _goals.any(
+                        (g) => g.muscleGroup == selectedMuscle,
+                      );
+
+                      if (goalExists) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'A goal for this muscle group already exists!',
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                        return; // Oprim adăugarea
+                      }
+
+                      setState(() {
+                        _goals.add(
+                          WeeklySetGoal(
+                            muscleGroup:
+                                selectedMuscle!, // Folosim valoarea din dropdown
+                            targetSets:
+                                int.tryParse(targetController.text) ?? 0,
+                            completedSets: 0,
+                          ),
+                        );
+                      });
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: addBtnColor),
+                  child: const Text(
+                    'Add Goal',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (muscleController.text.isNotEmpty &&
-                    targetController.text.isNotEmpty) {
-                  setState(() {
-                    _goals.add(
-                      WeeklySetGoal(
-                        muscleGroup: muscleController.text,
-                        targetSets: int.tryParse(targetController.text) ?? 0,
-                        completedSets: 0,
-                      ),
-                    );
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: addBtnColor, // Albastru închis
-              ),
-              child: const Text(
-                'Add Goal',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
@@ -320,9 +387,7 @@ class _GoalScreenState extends State<GoalScreen> {
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: [
                             BoxShadow(
-                              color: addBtnColor.withValues(
-                                alpha: 0.3,
-                              ), // <-- Actualizat
+                              color: addBtnColor.withValues(alpha: 0.3),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -373,16 +438,13 @@ class _GoalScreenState extends State<GoalScreen> {
                             ],
                             border: isCompleted
                                 ? Border.all(
-                                    color: Colors.green.withValues(
-                                      alpha: 0.5,
-                                    ), // <-- Actualizat
+                                    color: Colors.green.withValues(alpha: 0.5),
                                     width: 1.5,
                                   )
                                 : null,
                           ),
                           child: Row(
                             children: [
-                              // NUMELE GRUPEI MUSCULARE
                               Expanded(
                                 child: Text(
                                   goal.muscleGroup,
@@ -393,8 +455,6 @@ class _GoalScreenState extends State<GoalScreen> {
                                   ),
                                 ),
                               ),
-
-                              // REALIZAT (Stânga) / TARGET (Dreapta)
                               Text(
                                 '${goal.completedSets} / ${goal.targetSets}',
                                 style: TextStyle(
@@ -406,15 +466,13 @@ class _GoalScreenState extends State<GoalScreen> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-
-                              // SĂGEȚI (Compactate)
                               Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        goal.completedSets++;
+                                        goal.targetSets++;
                                       });
                                     },
                                     child: const Icon(
@@ -426,8 +484,8 @@ class _GoalScreenState extends State<GoalScreen> {
                                   GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        if (goal.completedSets > 0) {
-                                          goal.completedSets--;
+                                        if (goal.targetSets > 0) {
+                                          goal.targetSets--;
                                         }
                                       });
                                     },
@@ -439,7 +497,6 @@ class _GoalScreenState extends State<GoalScreen> {
                                   ),
                                 ],
                               ),
-
                               IconButton(
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
@@ -493,47 +550,58 @@ class _GoalScreenState extends State<GoalScreen> {
             const SizedBox(height: 12),
 
             // --- SECTION 5: TIP BOX ---
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.blueAccent.withValues(
-                  alpha: 0.08,
-                ), // <-- Actualizat
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.blueAccent.withValues(alpha: 0.2),
-                ), // <-- Actualizat
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('💡', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black87,
-                          height: 1.3,
+            AnimatedSize(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+              child: _showTip
+                  ? Container(
+                      margin: const EdgeInsets.only(
+                        bottom: 10,
+                      ), // mutat marginea aici
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blueAccent.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.blueAccent.withValues(alpha: 0.2),
                         ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextSpan(
-                            text: 'Tip: ',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(
-                            text:
-                                'Your goals will be used to generate personalized recommendations and track your progress.',
+                          const Text('💡', style: TextStyle(fontSize: 18)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                  height: 1.3,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: 'Tip: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        'Your goals will be used to generate personalized recommendations and track your progress.',
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : const SizedBox.shrink(), // Dacă e false, nu ocupă spațiu deloc
             ),
-            const SizedBox(height: 10),
           ],
         ),
       ),

@@ -81,7 +81,7 @@ Future<Response> _saveWorkoutHandler(Request req) async {
       currentWorkoutId = int.parse(incomingId.toString());
       await conn.query(
         'UPDATE Workouts SET name = ?, rpe = ?, date_created = ? WHERE id = ?',
-        [workoutName, rpe, DateTime.parse(date), currentWorkoutId],
+        [workoutName, rpe, DateTime.parse(date).toUtc(), currentWorkoutId],
       );
 
       // Ștergem exercițiile vechi din baza de date pentru a le pune pe cele noi
@@ -92,7 +92,8 @@ Future<Response> _saveWorkoutHandler(Request req) async {
       // ESTE ADĂUGARE NOUĂ! Facem INSERT
       var result = await conn.query(
         'INSERT INTO Workouts (user_id, name, rpe, date_created) VALUES (?, ?, ?, ?)',
-        [userId, workoutName, rpe, DateTime.parse(date)],
+        // --- AM ADAUGAT .toUtc() MAI JOS ---
+        [userId, workoutName, rpe, DateTime.parse(date).toUtc()],
       );
       currentWorkoutId = result.insertId!;
     }

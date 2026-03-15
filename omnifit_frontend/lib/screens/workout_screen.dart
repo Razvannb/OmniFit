@@ -528,6 +528,7 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                 ElevatedButton(
                   onPressed: () {
                     final finalWorkout = WorkoutItem(
+                      id: widget.workoutToEdit?.id,
                       name: _workoutNameController.text,
                       date: widget.workoutToEdit?.date ?? DateTime.now(),
                       exercises: _exercises,

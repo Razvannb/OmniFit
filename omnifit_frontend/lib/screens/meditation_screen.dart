@@ -159,6 +159,7 @@ class _MeditationScreenState extends State<MeditationScreen> {
   Widget build(BuildContext context) {
     // Calculate the progress ratio (between 0.0 and 1.0) for the circular indicator
     double progress = _totalMinutesToday / _dailyGoalMinutes;
+    if (progress < 0.0) progress = 0.0;
     if (progress > 1.0) progress = 1.0; // Cap visual progress at 100%
 
     // Check if the user has exceeded their daily goal
@@ -358,7 +359,7 @@ class _MeditationScreenState extends State<MeditationScreen> {
               children: [
                 _buildQuickAddButton('+ 5 min', 5, Colors.teal.shade300),
                 _buildQuickAddButton('+ 10 min', 10, Colors.teal.shade500),
-                _buildQuickAddButton('+ 15 min', 15, Colors.teal.shade700),
+                _buildQuickAddButton('- 5 min', -5, Colors.teal.shade700),
               ],
             ),
 

@@ -16,7 +16,11 @@ void main(List<String> args) async {
     ..post('/api/hydration', _placeholderHandler)
     ..post('/api/goals', _saveGoalHandler)
     ..get('/api/goals', _getGoalsHandler)
-    ..get('/api/dashboard', _getDashboardHandler);
+    ..get('/api/dashboard', _getDashboardHandler)
+    ..post('/api/nutrition', _saveNutritionHandler)
+    ..get('/api/nutrition', _getNutritionHandler)
+    ..post('/api/nutrition-goal', _saveNutritionGoalHandler)
+    ..get('/api/nutrition-goal', _getNutritionGoalHandler);
 
   // IP and port configuration
   final ip = InternetAddress.anyIPv4;
@@ -374,6 +378,143 @@ Future<Response> _deleteWorkoutHandler(Request req) async {
     return Response.internalServerError(
       body: json.encode({'error': e.toString()}),
       headers: {'Content-Type': 'application/json'},
+    );
+  }
+}
+
+// --- HANDLER SALVARE NUTRITIE (POST) ---
+Future<Response> _saveNutritionHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final mealName = data['meal_name'] ?? 'Meal';
+    final calories = data['calories'] ?? 0;
+    final proteins = data['proteins'] ?? 0;
+    final carbs = data['carbs'] ?? 0;
+    final fats = data['fats'] ?? 0;
+    final date = data['date'] ?? DateTime.now().toIso8601String();
+
+    await conn.query(
+      'INSERT INTO NutritionLog (user_id, meal_name, calories, proteins, carbs, fats, date_logged) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        userId,
+        mealName,
+        calories,
+        proteins,
+        carbs,
+        fats,
+        DateTime.parse(date).toUtc(),
+      ],
+    );
+
+    return Response.ok(json.encode({'status': 'success'}));
+  } catch (e) {
+    print("Error saving nutrition: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER EXTRAGERE NUTRITIE (GET) ---
+Future<Response> _getNutritionHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+
+    var logs = await conn.query(
+      'SELECT * FROM NutritionLog WHERE user_id = ? ORDER BY date_logged DESC',
+      [userId],
+    );
+
+    List<Map<String, dynamic>> results = [];
+    for (var row in logs) {
+      results.add({
+        'id': row['id'].toString(),
+        'meal_name': row['meal_name'] ?? 'Meal',
+        'calories': row['calories'],
+        'proteins': row['proteins'],
+        'carbs': row['carbs'],
+        'fats': row['fats'],
+        'date': (row['date_logged'] as DateTime).toIso8601String(),
+      });
+    }
+
+    return Response.ok(
+      json.encode(results),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    print("Error getting nutrition: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER SALVARE GOAL NUTRITIE (POST) ---
+Future<Response> _saveNutritionGoalHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final payload = await req.readAsString();
+    final data = json.decode(payload);
+
+    final userId = data['user_id'] ?? 1;
+    final goal = data['daily_calorie_goal'] ?? 2400;
+
+    var existing = await conn.query(
+      'SELECT id FROM NutritionGoals WHERE user_id = ?',
+      [userId],
+    );
+
+    if (existing.isNotEmpty) {
+      await conn.query(
+        'UPDATE NutritionGoals SET daily_calorie_goal = ? WHERE user_id = ?',
+        [goal, userId],
+      );
+    } else {
+      await conn.query(
+        'INSERT INTO NutritionGoals (user_id, daily_calorie_goal) VALUES (?, ?)',
+        [userId, goal],
+      );
+    }
+
+    return Response.ok(json.encode({'status': 'success'}));
+  } catch (e) {
+    print("Error saving nutrition goal: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
+    );
+  }
+}
+
+// --- HANDLER EXTRAGERE GOAL NUTRITIE (GET) ---
+Future<Response> _getNutritionGoalHandler(Request req) async {
+  try {
+    final conn = await Database.connect();
+    final userId = req.url.queryParameters['user_id'] ?? '1';
+
+    var result = await conn.query(
+      'SELECT daily_calorie_goal FROM NutritionGoals WHERE user_id = ?',
+      [userId],
+    );
+
+    int goal = 2400;
+    if (result.isNotEmpty) {
+      goal = int.parse(result.first['daily_calorie_goal'].toString());
+    }
+
+    return Response.ok(
+      json.encode({'daily_calorie_goal': goal}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e) {
+    print("Error getting nutrition goal: $e");
+    return Response.internalServerError(
+      body: json.encode({'error': e.toString()}),
     );
   }
 }

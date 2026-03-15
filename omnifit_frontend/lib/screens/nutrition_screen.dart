@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+// Base URL for API requests (Localhost pointing to backend)
+final String baseUrl = 'http://127.0.0.1:8080';
 
 //  DATA MODELS
 // Model representing a single meal
@@ -76,34 +81,71 @@ class _NutritionScreenState extends State<NutritionScreen> {
       ? 0.0
       : (_caloriesConsumedToday / _dailyCalorieGoal).clamp(0.0, 1.0);
 
-  // Fetch data (Currently using mock data for UI testing)
+  // Fetch data from backend
   Future<void> fetchNutritionData() async {
-    setState(() {
-      if (_savedLogs.isEmpty) {
-        // Adding mock meals for today
-        _savedLogs.add(
-          NutritionDayItem(
-            date: DateTime.now(),
-            meals: [
-              MealItem(
-                name: 'Lunch',
-                calories: 850,
-                proteins: 50,
-                carbs: 80,
-                fats: 20,
-              ),
-              MealItem(
-                name: 'Dinner',
-                calories: 800,
-                proteins: 40,
-                carbs: 40,
-                fats: 15,
-              ),
-            ],
-          ),
-        );
+    try {
+      // 1. Fetch Calorie Goal
+      final goalRes = await http.get(
+        Uri.parse('$baseUrl/api/nutrition-goal?user_id=${widget.userId}'),
+      );
+      if (goalRes.statusCode == 200) {
+        final goalData = json.decode(goalRes.body);
+        if (mounted) {
+          setState(() {
+            _dailyCalorieGoal = goalData['daily_calorie_goal'] ?? 2400;
+          });
+        }
       }
-    });
+
+      // 2. Fetch Nutrition Logs
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/nutrition?user_id=${widget.userId}'),
+      );
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+
+        // Group meals by date
+        Map<String, List<MealItem>> groupedMeals = {};
+
+        for (var item in data) {
+          // Extract just the date part (YYYY-MM-DD)
+          String dateStr = item['date'].toString().split('T')[0];
+
+          if (!groupedMeals.containsKey(dateStr)) {
+            groupedMeals[dateStr] = [];
+          }
+
+          groupedMeals[dateStr]!.add(
+            MealItem(
+              name: item['meal_name'] ?? 'Meal',
+              calories: item['calories'] ?? 0,
+              proteins: item['proteins'] ?? 0,
+              carbs: item['carbs'] ?? 0,
+              fats: item['fats'] ?? 0,
+            ),
+          );
+        }
+
+        List<NutritionDayItem> fetchedLogs = [];
+        groupedMeals.forEach((dateStr, meals) {
+          fetchedLogs.add(
+            NutritionDayItem(date: DateTime.parse(dateStr), meals: meals),
+          );
+        });
+
+        // Sort descending by date
+        fetchedLogs.sort((a, b) => b.date.compareTo(a.date));
+
+        if (mounted) {
+          setState(() {
+            _savedLogs.clear();
+            _savedLogs.addAll(fetchedLogs);
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching nutrition data: $e");
+    }
   }
 
   // Displays an alert dialog to change the daily calorie target
@@ -133,12 +175,26 @@ class _NutritionScreenState extends State<NutritionScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              int newGoal = int.tryParse(controller.text) ?? 2400;
+
               // Update goal and close dialog
-              setState(
-                () => _dailyCalorieGoal = int.tryParse(controller.text) ?? 2400,
-              );
+              setState(() => _dailyCalorieGoal = newGoal);
               Navigator.pop(context);
+
+              // POST goal to backend
+              try {
+                await http.post(
+                  Uri.parse('$baseUrl/api/nutrition-goal'),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({
+                    "user_id": widget.userId,
+                    "daily_calorie_goal": newGoal,
+                  }),
+                );
+              } catch (e) {
+                print("Error saving goal: $e");
+              }
             },
             child: const Text('Set'),
           ),
@@ -468,14 +524,30 @@ class _NutritionScreenState extends State<NutritionScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LogNutritionScreen(userId: widget.userId),
+        // Pass the meals already logged today to the next screen!
+        builder: (context) => LogNutritionScreen(
+          userId: widget.userId,
+          initialMeals: _todayLog?.meals ?? [],
+        ),
       ),
     );
-    setState(() {}); // Refresh UI upon returning
+    fetchNutritionData(); // Refresh UI upon returning
   }
 
   // Widget: Renders the list of past logged days
   Widget _buildHistoryList() {
+    if (_savedLogs.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            "No meals logged yet.",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: true, // Prevents layout errors inside SingleChildScrollView
       physics: const NeverScrollableScrollPhysics(), // Scroll handled by parent
@@ -509,54 +581,170 @@ class _NutritionScreenState extends State<NutritionScreen> {
 //  SCREEN 2: DAILY MEAL LIST LOG
 class LogNutritionScreen extends StatefulWidget {
   final int userId;
-  const LogNutritionScreen({super.key, required this.userId});
+  final List<MealItem> initialMeals; // Added to receive today's existing meals
+
+  const LogNutritionScreen({
+    super.key,
+    required this.userId,
+    this.initialMeals = const [],
+  });
+
   @override
   State<LogNutritionScreen> createState() => _LogNutritionScreenState();
 }
 
 class _LogNutritionScreenState extends State<LogNutritionScreen> {
-  final List<MealItem> _meals = [];
+  late List<MealItem> _meals;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with the meals passed from the main screen
+    _meals = List.from(widget.initialMeals);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Log Meals")),
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        title: const Text(
+          "Log Meals",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: Column(
         children: [
           // List of meals currently added
           Expanded(
-            child: ListView.builder(
-              itemCount: _meals.length,
-              itemBuilder: (context, i) => ListTile(
-                title: Text(_meals[i].name),
-                subtitle: Text(
-                  "${_meals[i].proteins}g P | ${_meals[i].carbs}g C | ${_meals[i].fats}g F",
-                ),
-                trailing: Text("${_meals[i].calories} kcal"),
-              ),
-            ),
-          ),
-          // Add Meal Button
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: ElevatedButton(
-              onPressed: () async {
-                // Navigate to the form and wait for a MealItem result
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AddMealScreen(),
+            child: _meals.isEmpty
+                ? const Center(
+                    child: Text(
+                      "No meals today.\nClick 'Add Meal' to start tracking!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _meals.length,
+                    itemBuilder: (context, i) => Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        title: Text(
+                          _meals[i].name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          "${_meals[i].proteins}g P | ${_meals[i].carbs}g C | ${_meals[i].fats}g F",
+                        ),
+                        trailing: Text(
+                          "${_meals[i].calories} kcal",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: Colors.blueAccent,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                );
-                if (result != null) setState(() => _meals.add(result));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: const Text(
-                "Add Meal",
-                style: TextStyle(color: Colors.white),
-              ),
+          ),
+
+          // Bottom Actions Panel (Add Meal & Done Buttons)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Button 1: Add Another Meal
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    // Navigate to the form and wait for a MealItem result
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddMealScreen(),
+                      ),
+                    );
+
+                    if (result != null && result is MealItem) {
+                      // POST TO BACKEND IMMEDIATELY!
+                      try {
+                        await http.post(
+                          Uri.parse('$baseUrl/api/nutrition'),
+                          headers: {"Content-Type": "application/json"},
+                          body: jsonEncode({
+                            "user_id": widget.userId,
+                            "meal_name": result.name,
+                            "calories": result.calories,
+                            "proteins": result.proteins,
+                            "carbs": result.carbs,
+                            "fats": result.fats,
+                            "date": DateTime.now().toIso8601String(),
+                          }),
+                        );
+
+                        // Update local list to show the new meal immediately
+                        setState(() => _meals.add(result));
+                      } catch (e) {
+                        print("Error saving meal: $e");
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text(
+                    "Add New Meal",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1565C0),
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Button 2: Done & Return
+                ElevatedButton(
+                  onPressed: () {
+                    // Pop the screen. This triggers fetchNutritionData() in the parent screen!
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Done & Return",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -583,14 +771,20 @@ class _AddMealScreenState extends State<AddMealScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Meal Details")),
-      body: Padding(
+      backgroundColor: const Color(0xFFF8F9FB),
+      appBar: AppBar(
+        title: const Text("Meal Details"),
+        backgroundColor: Colors.white,
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
             TextField(
               controller: _name,
-              decoration: const InputDecoration(labelText: "Meal Name"),
+              decoration: const InputDecoration(
+                labelText: "Meal Name (e.g. Lunch)",
+              ),
             ),
             TextField(
               controller: _cal,
@@ -629,18 +823,27 @@ class _AddMealScreenState extends State<AddMealScreen> {
             const SizedBox(height: 30),
             // Save Button
             ElevatedButton(
-              onPressed: () => Navigator.pop(
-                context,
-                // Create a MealItem from inputs and pass it back
-                MealItem(
-                  name: _name.text,
-                  calories: int.tryParse(_cal.text) ?? 0,
-                  proteins: int.tryParse(_prot.text) ?? 0,
-                  carbs: int.tryParse(_carb.text) ?? 0,
-                  fats: int.tryParse(_fat.text) ?? 0,
-                ),
+              onPressed: () {
+                String safeName = _name.text.isEmpty ? "Snack" : _name.text;
+                Navigator.pop(
+                  context,
+                  MealItem(
+                    name: safeName,
+                    calories: int.tryParse(_cal.text) ?? 0,
+                    proteins: int.tryParse(_prot.text) ?? 0,
+                    carbs: int.tryParse(_carb.text) ?? 0,
+                    fats: int.tryParse(_fat.text) ?? 0,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                minimumSize: const Size(double.infinity, 50),
               ),
-              child: const Text("Save Meal"),
+              child: const Text(
+                "Save Meal",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
             ),
           ],
         ),

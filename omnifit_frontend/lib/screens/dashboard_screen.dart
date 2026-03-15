@@ -23,8 +23,8 @@ class DashboardScreen extends StatelessWidget {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: const Color.fromARGB(221, 0, 0, 0),      
-         actions: [
+        foregroundColor: const Color.fromARGB(221, 0, 0, 0),
+        actions: [
           IconButton(
             icon: const Icon(Icons.account_circle_outlined, size: 28),
             onPressed: () {

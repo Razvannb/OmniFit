@@ -30,14 +30,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Default text shown while waiting for the API response
   String _aiRecommendation = "Loading your personalized recommendation...";
 
+  // List to hold the dynamically fetched goals
+  List<dynamic> _dashboardGoals = [];
+  // Tracks the loading state for the goals chart
+  bool _isLoadingGoals = true;
+
   @override
   void initState() {
     super.initState();
     // Fetch the AI recommendation from the backend as soon as the screen loads
     fetchRecommendation();
+    // Fetch the weekly goals for the chart as soon as the screen loads
+    fetchDashboardGoals();
   }
 
   //  API CALLS
+
   // Fetches a personalized AI recommendation based on the user's data
   Future<void> fetchRecommendation() async {
     try {
@@ -48,17 +56,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // If the server responds successfully
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // Update the UI with the fetched text
-        setState(() {
-          _aiRecommendation = data['recommendation'];
-        });
+        if (mounted) {
+          // Update the UI with the fetched text
+          setState(() {
+            _aiRecommendation = data['recommendation'];
+          });
+        }
       }
     } catch (e) {
       // Handle network errors or server downtime
       print("Error AI recommendation: $e");
-      setState(() {
-        _aiRecommendation = "We couldn't load the recommendation.";
-      });
+      if (mounted) {
+        setState(() {
+          _aiRecommendation = "We couldn't load the recommendation.";
+        });
+      }
+    }
+  }
+
+  // Fetches the user's weekly set goals and current progress
+  Future<void> fetchDashboardGoals() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/goals?user_id=1'), // Fetching for user 1
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (mounted) {
+          // Update the UI with the fetched goals and stop the loader
+          setState(() {
+            _dashboardGoals = data;
+            _isLoadingGoals = false;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error loading goals for dashboard: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingGoals = false;
+        });
+      }
     }
   }
 
@@ -161,27 +200,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFF0D2447), // Dark navy blue background
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Column(
-        children: [
-          // Currently using hardcoded mock data for visual layout
-          _buildMuscleProgressRow('Chest', 10, 14),
-          const SizedBox(height: 16),
-          _buildMuscleProgressRow('Back', 18, 20),
-          const SizedBox(height: 16),
-          _buildMuscleProgressRow('Legs', 8, 12),
-          const SizedBox(height: 16),
-          _buildMuscleProgressRow('Shoulders', 6, 10),
-          const SizedBox(height: 16),
-          _buildMuscleProgressRow('Arms', 12, 12),
-        ],
-      ),
+      // Use a ternary operator to handle Loading -> Empty -> Populated states
+      child: _isLoadingGoals
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : _dashboardGoals.isEmpty
+          ? const Center(
+              child: Text(
+                "No goals set yet.\nTap 'View Goals' to start tracking!",
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            )
+          : Column(
+              // Map through the dynamic goals list and build a row for each
+              children: _dashboardGoals.map((goal) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: _buildMuscleProgressRow(
+                    goal['muscleGroup'] ?? 'Unknown',
+                    goal['currentSets'] ?? 0,
+                    goal['targetSets'] ?? 0,
+                  ),
+                );
+              }).toList(),
+            ),
     );
   }
 
   // Builds a single row inside the Weekly Sets Goal card (Name, Progress Bar, Ratio)
   Widget _buildMuscleProgressRow(String title, int current, int target) {
-    // Calculate progress fraction
-    double progress = current / target;
+    // Calculate progress fraction safely
+    double progress = 0.0;
+    if (target > 0) {
+      progress = current / target;
+    }
+
     // Handle edge cases like division by zero
     if (progress.isNaN || progress.isInfinite) progress = 0;
     if (progress > 1.0) progress = 1.0; // Cap at 100%
@@ -207,8 +260,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white.withOpacity(0.1),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Colors.blueAccent,
+              // Turns green if the target is reached, otherwise stays blue
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress >= 1.0 ? Colors.greenAccent : Colors.blueAccent,
               ),
               minHeight: 8,
             ),

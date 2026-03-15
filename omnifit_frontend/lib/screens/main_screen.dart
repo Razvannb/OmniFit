@@ -26,10 +26,22 @@ class _MainScreenState extends State<MainScreen> {
     final List<Widget> screens = [
       DashboardScreen(
         onAddWorkout: () {
-          _onItemTapped(1); // Navigate to the Workouts tab
+          // Directly open the LogWorkoutScreen to add a new workout
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  const LogWorkoutScreen(), // Defined in workout_screen.dart
+            ),
+          ).then((_) {
+            // After the workout is saved and the screen is closed,
+            // switch the active tab to "Workouts" (index 1)
+            _onItemTapped(1);
+          });
         },
         onViewGoals: () {
-          _onItemTapped(3); // Navigate to the Goals tab
+          // Navigate to the Goals tab (index 3)
+          _onItemTapped(3);
         },
       ),
       const WorkoutScreen(),

@@ -361,8 +361,8 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                foregroundColor: const Color.fromARGB(255, 0, 0, 0),
               ),
               child: const Text('Save'),
             ),
@@ -564,12 +564,16 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Set the light gray-white background color
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
         title: Text(
           widget.workoutToEdit == null ? 'New Workout' : 'Edit Workout',
+          // Make the title text bold
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -598,8 +602,8 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                   style: TextStyle(fontSize: 18),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                  foregroundColor: const Color.fromARGB(255, 255, 255, 255),
                 ),
               ),
             ),
@@ -848,12 +852,14 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Set the consistent light gray-white background color
+      backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
         title: Text(
           widget.exerciseToEdit == null ? 'Add Exercise' : 'Edit Exercise',
         ),
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -974,8 +980,8 @@ class _AddExerciseScreenState extends State<AddExerciseScreen> {
               child: ElevatedButton(
                 onPressed: _saveExercise,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: const Color.fromARGB(255, 0, 0, 0),
+                  foregroundColor: const Color.fromARGB(255, 255, 255, 255),
                 ),
                 child: const Text(
                   'Save Exercise',

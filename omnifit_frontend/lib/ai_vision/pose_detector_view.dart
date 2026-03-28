@@ -21,25 +21,33 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
   // --- Core Camera & ML Variables ---
   CameraController? _cameraController; // Controls the device's physical camera
   List<CameraDescription>? _cameras; // List of available cameras (front/back)
-  bool _isCameraInitialized = false; // Flag to show loading screen until camera is ready
-  
+  bool _isCameraInitialized =
+      false; // Flag to show loading screen until camera is ready
+
   // The Google ML Kit engine that finds human body parts in an image
   final PoseDetector _poseDetector = PoseDetector(
     options: PoseDetectorOptions(),
   );
-  
+
   bool _canProcess = true; // Flag to allow/stop image processing
-  bool _isBusy = false; // Prevents processing a new frame while the current one is still being analyzed
+  bool _isBusy =
+      false; // Prevents processing a new frame while the current one is still being analyzed
   CustomPaint? _customPaint; // The visual lines/dots drawn over the body
 
   // --- Exercise State Machine & UI Variables ---
   String _selectedExercise = 'Squat'; // Default exercise
-  final List<String> _exercises = ['Squat', 'Pushup']; // Available exercises in the dropdown
+  final List<String> _exercises = [
+    'Squat',
+    'Pushup',
+  ]; // Available exercises in the dropdown
 
   int _reps = 0; // The Rep Counter (how many squats/pushups you did)
-  bool _isDown = false; // Tracks if the user is currently at the bottom of the movement
-  String _feedbackText = "Ready! Get in position."; // Dynamic instructions shown on screen
-  Color _feedbackColor = Colors.white; // Color of the feedback text (changes to green/orange)
+  bool _isDown =
+      false; // Tracks if the user is currently at the bottom of the movement
+  String _feedbackText =
+      "Ready! Get in position."; // Dynamic instructions shown on screen
+  Color _feedbackColor =
+      Colors.white; // Color of the feedback text (changes to green/orange)
 
   // --- Countdown State Variables ---
   // Gives the user 5 seconds to step back and get in position
@@ -87,7 +95,7 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
       // Start the 5-second preparation timer as soon as camera is ready
       _startExerciseCountdown();
 
-      // Start listening to the camera feed. 
+      // Start listening to the camera feed.
       // This calls _processCameraImage dozens of times per second.
       _cameraController?.startImageStream(_processCameraImage);
     }
@@ -134,16 +142,16 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
       image.width.toDouble(),
       image.height.toDouble(),
     );
-    
+
     final camera = _cameras!.firstWhere(
       (camera) => camera.lensDirection == CameraLensDirection.front,
     );
-    
+
     // Calculate how the image needs to be rotated (portrait/landscape)
     final imageRotation =
         InputImageRotationValue.fromRawValue(camera.sensorOrientation) ??
         InputImageRotation.rotation0deg;
-        
+
     final inputImageFormat =
         InputImageFormatValue.fromRawValue(image.format.raw) ??
         InputImageFormat.nv21;
@@ -251,7 +259,7 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
           _feedbackText = "Perfect! Now go up.";
           _feedbackColor = Colors.greenAccent;
         }
-      } 
+      }
       // Phase 2: Going Up
       // If the angle is > 150 degrees, the user is standing back up straight
       else if (currentAngle > 150.0) {
@@ -261,7 +269,7 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
           _feedbackText = "Great job! Go lower again.";
           _feedbackColor = Colors.white;
         }
-      } 
+      }
       // Phase 3: In between / Incomplete movement
       else {
         if (!_isDown) {
@@ -312,7 +320,7 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
                       fit: StackFit.expand,
                       children: [
                         CameraPreview(_cameraController!), // Live camera video
-                        if (_customPaint != null) _customPaint!, // The AI Skeleton lines
+                        ?_customPaint, // The AI Skeleton lines
                       ],
                     ),
                   ),
@@ -351,7 +359,8 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
                       value: _selectedExercise,
                       dropdownColor: Colors.black87,
                       borderRadius: BorderRadius.circular(12),
-                      underline: const SizedBox(), // Removes the default underline
+                      underline:
+                          const SizedBox(), // Removes the default underline
                       icon: const Icon(
                         Icons.fitness_center,
                         color: Colors.white,
@@ -442,7 +451,8 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
                     bottom: 40,
                     right: 20,
                     child: GestureDetector(
-                      onTap: _startExerciseCountdown, // Restarts timer and resets reps
+                      onTap:
+                          _startExerciseCountdown, // Restarts timer and resets reps
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -475,7 +485,9 @@ class _PoseDetectorViewState extends State<PoseDetectorView> {
                 Positioned(
                   bottom: 40,
                   left: 20,
-                  right: _showInfo ? 20 : null, // Expand across screen only if open
+                  right: _showInfo
+                      ? 20
+                      : null, // Expand across screen only if open
                   child: _showInfo
                       // OPEN STATE: Full banner with instructions
                       ? GestureDetector(

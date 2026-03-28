@@ -211,7 +211,7 @@ class _GoalScreenState extends State<GoalScreen> {
                 children: [
                   //  DROPDOWN FOR MUSCLE GROUPS
                   DropdownButtonFormField<String>(
-                    value: selectedMuscle,
+                    initialValue: selectedMuscle,
                     decoration: const InputDecoration(
                       labelText: 'Muscle Group',
                       border: OutlineInputBorder(),

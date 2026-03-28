@@ -36,6 +36,16 @@ To run this project locally, you will need to set up the Flutter environment and
 
 ### Installation
 
-Clone the repository:
+1. Clone the repository:
    ```bash
    git clone https://github.com/Razvannb/OmniFit.git
+2. Navigate to the project directory:
+   ```bash
+   cd OmniFit
+3. Install the required Flutter dependencies:
+   ```bash
+   flutter pub get
+4. Configure Database Connection: Ensure that the database connection strings in the application code point to your local MySQL instance (typically localhost or 127.0.0.1 on the port specified by DBngin, usually 3306).
+5. Run the application:
+   ```bash
+   flutter run

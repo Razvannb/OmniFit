@@ -10,7 +10,8 @@ A comprehensive health and fitness application developed as a hackathon team pro
 
 ## Technologies Used
 
-* **Frontend:** Flutter, Dart
+* **Frontend:** Flutter
+* **Backend** Dart
 * **Database:** MySQL
 * **AI / Machine Learning:** Google AI Vision
 
@@ -30,11 +31,11 @@ To run this project locally, you will need to set up the Flutter environment and
 2. **Start MySQL Server:** Open DBngin, create a new MySQL server instance, and start the service.
 3. **Initialize Database:**
    * Open your preferred database client and connect to the local MySQL server instance created via DBngin.
-   * Locate the SQL script provided in this repository (e.g., `database_setup.sql` or similar).
+   * Locate the SQL script provided in this repository (e.g., 'db.sql' or similar).
    * Execute the script to create the required database schema and initialize the tables.
 
 ### Installation
 
-1. Clone the repository:
+Clone the repository:
    ```bash
-   git clone [https://github.com/Razvannb/OmniFit.git](https://github.com/Razvannb/OmniFit.git)
+   git clone https://github.com/Razvannb/OmniFit.git

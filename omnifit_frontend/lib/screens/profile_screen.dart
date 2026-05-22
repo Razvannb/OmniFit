@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../services/api_service.dart';
 
 //  PROFILE SCREEN
 // This screen displays the user's profile information and account-related settings.
@@ -34,8 +36,13 @@ class ProfileScreen extends StatelessWidget {
               icon: Icons.logout,
               title: 'Log Out',
               isDestructive: true,
-              onTap: () {
-                // Add your logout logic here in the future
+              onTap: () async {
+                // Clear the session token from local storage
+                await ApiService.logout();
+                if (context.mounted) {
+                  // Direct the user back to the Login page
+                  context.go('/');
+                }
               },
             ),
           ],

@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'dart:convert';
 import 'profile_screen.dart';
 import 'hydration_screen.dart';
 import 'meditation_screen.dart';
-import '../constants.dart';
-
-// Base URL for API requests (Localhost pointing to backend)
-final String baseUrl = ApiConstants.baseUrl;
 
 //  MAIN DASHBOARD SCREEN
 // This is the home tab where users can see their daily overview, quick actions, and AI insights.
@@ -50,9 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Fetches a personalized AI recommendation based on the user's data
   Future<void> fetchRecommendation() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/dashboard?user_id=1'), // Fetching for user 1
-      );
+      final response = await ApiService.get('/api/dashboard');
 
       // If the server responds successfully
       if (response.statusCode == 200) {
@@ -78,9 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Fetches the user's weekly set goals and current progress
   Future<void> fetchDashboardGoals() async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/goals?user_id=1'), // Fetching for user 1
-      );
+      final response = await ApiService.get('/api/goals');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

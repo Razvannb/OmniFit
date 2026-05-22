@@ -1,19 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'dart:convert';
-import '../constants.dart';
-
-// Base URL for API requests (Localhost pointing to backend)
-final String baseUrl = ApiConstants.baseUrl;
 
 //  MAIN SCREEN
 class HydrationScreen extends StatefulWidget {
-  final int userId;
-
   // The constructor
   // [super.key] uniquely identifies this widget in the widget tree for efficient rendering
-  // Added userId with a default value of 1 so it doesn't break navigation from Dashboard
-  const HydrationScreen({super.key, this.userId = 1});
+  const HydrationScreen({super.key});
 
   // Creates the mutable state for this screen, which will hold the current water intake, daily goal, history of intake, and reminder status
   @override
@@ -38,9 +31,7 @@ class _HydrationScreenState extends State<HydrationScreen> {
   Future<void> fetchHydrationData() async {
     try {
       // 1. Fetch Hydration Goal
-      final goalRes = await http.get(
-        Uri.parse('$baseUrl/api/hydration-goal?user_id=${widget.userId}'),
-      );
+      final goalRes = await ApiService.get('/api/hydration-goal');
       if (goalRes.statusCode == 200) {
         final goalData = json.decode(goalRes.body);
         if (mounted) {
@@ -51,9 +42,7 @@ class _HydrationScreenState extends State<HydrationScreen> {
       }
 
       // 2. Fetch Hydration Logs for Today
-      final logRes = await http.get(
-        Uri.parse('$baseUrl/api/hydration?user_id=${widget.userId}'),
-      );
+      final logRes = await ApiService.get('/api/hydration');
       if (logRes.statusCode == 200) {
         List<dynamic> data = json.decode(logRes.body);
 
@@ -124,14 +113,12 @@ class _HydrationScreenState extends State<HydrationScreen> {
 
       // 2. POST to Backend
       try {
-        await http.post(
-          Uri.parse('$baseUrl/api/hydration'),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "user_id": widget.userId,
+        await ApiService.post(
+          '/api/hydration',
+          body: {
             "amount": actualAmountToAdd,
             "date": DateTime.now().toIso8601String(),
-          }),
+          },
         );
       } catch (e) {
         print("Error saving water log: $e");
@@ -190,13 +177,11 @@ class _HydrationScreenState extends State<HydrationScreen> {
 
                   // POST Goal to Backend
                   try {
-                    await http.post(
-                      Uri.parse('$baseUrl/api/hydration-goal'),
-                      headers: {"Content-Type": "application/json"},
-                      body: jsonEncode({
-                        "user_id": widget.userId,
+                    await ApiService.post(
+                      '/api/hydration-goal',
+                      body: {
                         "daily_water_goal": newGoal,
-                      }),
+                      },
                     );
                   } catch (e) {
                     print("Error saving hydration goal: $e");

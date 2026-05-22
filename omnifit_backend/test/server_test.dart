@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart';
@@ -23,13 +24,9 @@ void main() {
   test('Root', () async {
     final response = await get(Uri.parse('$host/'));
     expect(response.statusCode, 200);
-    expect(response.body, 'Hello, World!\n');
-  });
-
-  test('Echo', () async {
-    final response = await get(Uri.parse('$host/echo/hello'));
-    expect(response.statusCode, 200);
-    expect(response.body, 'hello\n');
+    final data = json.decode(response.body);
+    expect(data['status'], 'online');
+    expect(data['message'], 'OmniFit API is running correctly');
   });
 
   test('404', () async {

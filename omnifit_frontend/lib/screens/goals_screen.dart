@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'dart:convert';
 import 'dart:async';
-import '../constants.dart';
-
-// Base URL for API requests
-final String baseUrl = ApiConstants.baseUrl;
 
 //  DATA MODEL FOR WEEKLY SETS
 // Represents a weekly workout goal for a specific muscle group
@@ -33,8 +29,7 @@ class WeeklySetGoal {
 
 //  MAIN SCREEN
 class GoalScreen extends StatefulWidget {
-  final int userId; // ID of the currently logged-in user
-  const GoalScreen({super.key, required this.userId});
+  const GoalScreen({super.key});
 
   @override
   State<GoalScreen> createState() => _GoalScreenState();
@@ -114,10 +109,9 @@ class _GoalScreenState extends State<GoalScreen> {
   // Fetch existing goals from the backend
   Future<void> fetchGoalsData() async {
     setState(() => _isLoading = true);
-    final url = Uri.parse('$baseUrl/api/goals?user_id=${widget.userId}');
 
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 3));
+      final response = await ApiService.get('/api/goals');
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
 
@@ -152,14 +146,12 @@ class _GoalScreenState extends State<GoalScreen> {
     try {
       // Loop through all goals and send a POST request for each
       for (var goal in _goals) {
-        final response = await http.post(
-          Uri.parse('$baseUrl/api/goals'),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "user_id": widget.userId,
+        final response = await ApiService.post(
+          '/api/goals',
+          body: {
             "muscleGroup": goal.muscleGroup,
             "targetSets": goal.targetSets,
-          }),
+          },
         );
         print(
           "Save Goal Response for ${goal.muscleGroup}: ${response.statusCode} | ${response.body}",

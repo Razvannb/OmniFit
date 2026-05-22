@@ -58,9 +58,9 @@ class _MainScreenState extends State<MainScreen> {
       // Index 1: Workouts List
       const WorkoutScreen(),
       // Index 2: Nutrition/Calories Log
-      const NutritionScreen(userId: 1),
+      const NutritionScreen(),
       // Index 3: Weekly Goals
-      const GoalScreen(userId: 1),
+      const GoalScreen(),
       // Index 4: AI Form Check (Camera)
       const PoseDetectorView(),
     ];

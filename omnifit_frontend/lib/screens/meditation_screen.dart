@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'dart:convert';
-import '../constants.dart';
-
-// Base URL for API requests (Localhost pointing to backend)
-final String baseUrl = ApiConstants.baseUrl;
 
 //  DATA MODELS
 // Model representing a single meditation session
@@ -22,11 +18,8 @@ class MeditationSession {
 
 //  MAIN SCREEN
 class MeditationScreen extends StatefulWidget {
-  final int userId;
-
   // Constructor
-  // Added userId with a default value of 1 so it doesn't break navigation from Dashboard
-  const MeditationScreen({super.key, this.userId = 1});
+  const MeditationScreen({super.key});
 
   @override
   State<MeditationScreen> createState() => _MeditationScreenState();
@@ -55,9 +48,7 @@ class _MeditationScreenState extends State<MeditationScreen> {
   Future<void> fetchMeditationData() async {
     try {
       // 1. Fetch Meditation Goal
-      final goalRes = await http.get(
-        Uri.parse('$baseUrl/api/meditation-goal?user_id=${widget.userId}'),
-      );
+      final goalRes = await ApiService.get('/api/meditation-goal');
       if (goalRes.statusCode == 200) {
         final goalData = json.decode(goalRes.body);
         if (mounted) {
@@ -68,9 +59,7 @@ class _MeditationScreenState extends State<MeditationScreen> {
       }
 
       // 2. Fetch Meditation Logs for Today
-      final logRes = await http.get(
-        Uri.parse('$baseUrl/api/meditation?user_id=${widget.userId}'),
-      );
+      final logRes = await ApiService.get('/api/meditation');
       if (logRes.statusCode == 200) {
         List<dynamic> data = json.decode(logRes.body);
 
@@ -130,14 +119,12 @@ class _MeditationScreenState extends State<MeditationScreen> {
 
       // 2. POST to Backend
       try {
-        await http.post(
-          Uri.parse('$baseUrl/api/meditation'),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "user_id": widget.userId,
+        await ApiService.post(
+          '/api/meditation',
+          body: {
             "minutes": actualMinutesToAdd,
             "date": DateTime.now().toIso8601String(),
-          }),
+          },
         );
       } catch (e) {
         print("Error saving meditation log: $e");
@@ -193,13 +180,11 @@ class _MeditationScreenState extends State<MeditationScreen> {
 
                   // POST Goal to Backend
                   try {
-                    await http.post(
-                      Uri.parse('$baseUrl/api/meditation-goal'),
-                      headers: {"Content-Type": "application/json"},
-                      body: jsonEncode({
-                        "user_id": widget.userId,
+                    await ApiService.post(
+                      '/api/meditation-goal',
+                      body: {
                         "daily_minutes_goal": newGoal,
-                      }),
+                      },
                     );
                   } catch (e) {
                     print("Error saving meditation goal: $e");

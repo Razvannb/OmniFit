@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../constants.dart';
-
-// Base URL for API requests (Localhost pointing to backend)
-final String baseUrl = ApiConstants.baseUrl;
+import '../services/api_service.dart';
 
 //  DATA MODELS
 // Model representing a single meal
@@ -43,8 +40,7 @@ class NutritionDayItem {
 
 //  SCREEN 1: MAIN NUTRITION LOG
 class NutritionScreen extends StatefulWidget {
-  final int userId;
-  const NutritionScreen({super.key, required this.userId});
+  const NutritionScreen({super.key});
 
   @override
   State<NutritionScreen> createState() => _NutritionScreenState();
@@ -65,7 +61,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
     final now = DateTime.now();
     try {
       return _savedLogs.firstWhere(
-        (log) =>
+         (log) =>
             log.date.year == now.year &&
             log.date.month == now.month &&
             log.date.day == now.day,
@@ -86,9 +82,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
   Future<void> fetchNutritionData() async {
     try {
       // 1. Fetch Calorie Goal
-      final goalRes = await http.get(
-        Uri.parse('$baseUrl/api/nutrition-goal?user_id=${widget.userId}'),
-      );
+      final goalRes = await ApiService.get('/api/nutrition-goal');
       if (goalRes.statusCode == 200) {
         final goalData = json.decode(goalRes.body);
         if (mounted) {
@@ -99,9 +93,7 @@ class _NutritionScreenState extends State<NutritionScreen> {
       }
 
       // 2. Fetch Nutrition Logs
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/nutrition?user_id=${widget.userId}'),
-      );
+      final response = await ApiService.get('/api/nutrition');
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
 
@@ -185,13 +177,11 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
               // POST goal to backend
               try {
-                await http.post(
-                  Uri.parse('$baseUrl/api/nutrition-goal'),
-                  headers: {"Content-Type": "application/json"},
-                  body: jsonEncode({
-                    "user_id": widget.userId,
+                await ApiService.post(
+                  '/api/nutrition-goal',
+                  body: {
                     "daily_calorie_goal": newGoal,
-                  }),
+                  },
                 );
               } catch (e) {
                 print("Error saving goal: $e");
@@ -527,7 +517,6 @@ class _NutritionScreenState extends State<NutritionScreen> {
       MaterialPageRoute(
         // Pass the meals already logged today to the next screen!
         builder: (context) => LogNutritionScreen(
-          userId: widget.userId,
           initialMeals: _todayLog?.meals ?? [],
         ),
       ),
@@ -581,12 +570,10 @@ class _NutritionScreenState extends State<NutritionScreen> {
 
 //  SCREEN 2: DAILY MEAL LIST LOG
 class LogNutritionScreen extends StatefulWidget {
-  final int userId;
   final List<MealItem> initialMeals; // Added to receive today's existing meals
 
   const LogNutritionScreen({
     super.key,
-    required this.userId,
     this.initialMeals = const [],
   });
 
@@ -687,18 +674,16 @@ class _LogNutritionScreenState extends State<LogNutritionScreen> {
                     if (result != null && result is MealItem) {
                       // POST TO BACKEND IMMEDIATELY!
                       try {
-                        await http.post(
-                          Uri.parse('$baseUrl/api/nutrition'),
-                          headers: {"Content-Type": "application/json"},
-                          body: jsonEncode({
-                            "user_id": widget.userId,
+                        await ApiService.post(
+                          '/api/nutrition',
+                          body: {
                             "meal_name": result.name,
                             "calories": result.calories,
                             "proteins": result.proteins,
                             "carbs": result.carbs,
                             "fats": result.fats,
                             "date": DateTime.now().toIso8601String(),
-                          }),
+                          },
                         );
 
                         // Update local list to show the new meal immediately

@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../constants.dart';
-
-// Base URL for the backend API
-final String baseUrl = ApiConstants.baseUrl;
+import '../services/api_service.dart';
 
 //  DATA MODELS
 
@@ -66,10 +62,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   // Method to retrieve workout data from the backend API
   Future<void> fetchWorkoutData() async {
-    final url = Uri.parse('$baseUrl/api/get-workout?user_id=1');
-
     try {
-      final response = await http.get(url);
+      final response = await ApiService.get('/api/get-workout');
 
       if (response.statusCode == 200) {
         List<dynamic> data = jsonDecode(response.body);
@@ -255,10 +249,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                                             if (workoutId != null &&
                                                 !workoutId.contains('#')) {
                                               try {
-                                                await http.delete(
-                                                  Uri.parse(
-                                                    '$baseUrl/api/delete-workout?id=$workoutId',
-                                                  ),
+                                                await ApiService.delete(
+                                                  '/api/delete-workout?id=$workoutId',
                                                 );
                                               } catch (e) {
                                                 print("Error on delete: $e");
@@ -433,8 +425,6 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
 
   // Sends the finalized workout data to the backend via POST request
   Future<void> sendWorkoutData(WorkoutItem workout) async {
-    final url = Uri.parse('$baseUrl/api/save-workout');
-
     // Format the exercises list into JSON structure expected by the API
     List<Map<String, dynamic>> exercisesJson = workout.exercises
         .map<Map<String, dynamic>>((ex) {
@@ -452,7 +442,6 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     // Prepare the final payload
     Map<String, dynamic> workoutData = {
       "id": workout.id,
-      "user_id": 1,
       "workoutName": workout.name,
       "date": workout.date.toIso8601String(),
       "rpe": workout.rpe,
@@ -461,10 +450,9 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     };
 
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(workoutData),
+      final response = await ApiService.post(
+        '/api/save-workout',
+        body: workoutData,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
